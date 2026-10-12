@@ -178,7 +178,7 @@ export default function App(){
 
   // Refs for the focus-trap hook below: each modal's outer container, so we
   // can find its focusable children and cycle Tab within them.
-  const searchModalRef=useRef(null),locModalRef=useRef(null),lostModalRef=useRef(null),fabPanelRef=useRef(null);
+  const searchModalRef=useRef(null),locModalRef=useRef(null),lostModalRef=useRef(null),fabPanelRef=useRef(null),searchInputRef=useRef(null);
 
   // Phone/browser back-button support: treat any open overlay as one "layer"
   // on top of the app. Opening an overlay pushes a single history entry;
@@ -466,23 +466,64 @@ export default function App(){
     if(!mapRef.current||!window.L)return;
     const Lx=window.L;
 
-    // ── Player marker: rotating compass-needle badge showing live heading ────
-    // Distinct from the plain blue-dot marker in most map apps: a dotted
-    // compass ring stays fixed while the needle inside rotates to match the
-    // device's real heading, updated on every GPS fix.
-    const html=`<div style="width:60px;height:60px;filter:drop-shadow(0 2px 8px rgba(0,0,0,0.3));">
-      <svg width="60" height="60" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r="46" fill="none" stroke="${C.accent}" stroke-width="2" stroke-dasharray="2,7" opacity="0.6"/>
-        <g class="compass-needle" style="transform-origin:50px 50px;transform:rotate(${hdg}deg);transition:transform 0.4s;">
-          <polygon points="50,10 60,50 50,41 40,50" fill="${C.accent}"/>
+    // ── Player marker: high-tech navigator pointer with cyber glow & radar sweep ──
+    const html=`<div style="width:72px;height:72px;position:relative;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;inset:4px;border-radius:50%;border:2px solid rgba(0,210,255,0.45);background:radial-gradient(circle, rgba(0,210,255,0.18) 0%, rgba(99,102,241,0.08) 55%, transparent 75%);animation:sonarPulse 2.4s cubic-bezier(0.2,0.8,0.2,1) infinite;pointer-events:none;"></div>
+      <svg width="72" height="72" viewBox="0 0 100 100" style="filter:drop-shadow(0 4px 14px rgba(0,210,255,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.45));overflow:visible;">
+        <defs>
+          <radialGradient id="navRadarGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.35"/>
+            <stop offset="60%" stop-color="#6366F1" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="navArrowL" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00F5FF"/>
+            <stop offset="50%" stop-color="#00D2FF"/>
+            <stop offset="100%" stop-color="#0284C7"/>
+          </linearGradient>
+          <linearGradient id="navArrowR" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38BDF8"/>
+            <stop offset="60%" stop-color="#0284C7"/>
+            <stop offset="100%" stop-color="#0369A1"/>
+          </linearGradient>
+          <linearGradient id="navRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00F5FF"/>
+            <stop offset="50%" stop-color="#818CF8"/>
+            <stop offset="100%" stop-color="#00E5FF"/>
+          </linearGradient>
+          <linearGradient id="navBeam" x1="50%" y1="100%" x2="50%" y2="0%">
+            <stop offset="0%" stop-color="#00F5FF" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#00F5FF" stop-opacity="0.45"/>
+          </linearGradient>
+        </defs>
+        <!-- Outer compass tech ring with tick marks -->
+        <circle cx="50" cy="50" r="46" fill="url(#navRadarGlow)" stroke="url(#navRingGrad)" stroke-width="1.8" stroke-dasharray="3,6" opacity="0.85"/>
+        <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.8" stroke-dasharray="1,4" opacity="0.6"/>
+        
+        <!-- Rotating Navigation Group -->
+        <g class="compass-needle" style="transform-origin:50px 50px;transform:rotate(${hdg}deg);transition:transform 0.35s cubic-bezier(0.2,0,0,1);">
+          <!-- Heading beam vision cone -->
+          <polygon points="50,50 24,4 76,4" fill="url(#navBeam)"/>
+          
+          <!-- Beveled 3D Chevron Arrow with high-contrast dual tone -->
+          <polygon points="50,12 50,48 28,58" fill="url(#navArrowL)" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))"/>
+          <polygon points="50,12 72,58 50,48" fill="url(#navArrowR)" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))"/>
+          <!-- Sharp center spine highlight -->
+          <line x1="50" y1="12" x2="50" y2="48" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+          <!-- Neon accent wing edges -->
+          <line x1="50" y1="12" x2="28" y2="58" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
+          <line x1="50" y1="12" x2="72" y2="58" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
         </g>
-        <circle cx="50" cy="50" r="11" fill="white" stroke="${C.accent}" stroke-width="2.5"/>
-        <circle cx="50" cy="50" r="4" fill="${C.accent}"/>
+        
+        <!-- Central crystal core indicator -->
+        <circle cx="50" cy="50" r="10" fill="#0A0F1D" stroke="url(#navRingGrad)" stroke-width="2.2"/>
+        <circle cx="50" cy="50" r="5" fill="#00F5FF"/>
+        <circle cx="48" cy="48" r="1.8" fill="#FFFFFF" opacity="0.9"/>
       </svg>
     </div>`;
 
     if(!playerRef.current){
-      const icon=Lx.divIcon({className:'',html,iconSize:[60,60],iconAnchor:[30,30]});
+      const icon=Lx.divIcon({className:'',html,iconSize:[72,72],iconAnchor:[36,36]});
       playerRef.current=Lx.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(mapRef.current);
     }else{
       playerRef.current.setLatLng([lat,lng]);
@@ -608,8 +649,42 @@ export default function App(){
     });
     if(destMarker.current)destMarker.current.remove();
     const dest=BUILDINGS[path[path.length-1]];
-    const pinHtml=`<div style="filter:drop-shadow(0 3px 10px ${C.shadowPeach})"><svg width="28" height="38" viewBox="0 0 28 38"><path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 24 14 24S28 24.5 28 14C28 6.3 21.7 0 14 0z" fill="${C.peach}"/><circle cx="14" cy="14" r="6" fill="white"/></svg></div>`;
-    const pinIcon=Lx.divIcon({className:'',html:pinHtml,iconSize:[28,38],iconAnchor:[14,38]});
+    const pinHtml=`<div style="position:relative;width:40px;height:52px;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;bottom:0;left:6px;width:28px;height:12px;border-radius:50%;background:radial-gradient(ellipse, rgba(255,59,48,0.5) 0%, rgba(255,59,48,0) 70%);animation:sonarPulse 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
+      <div style="animation:destBeacon 2s ease-in-out infinite;transform-origin:20px 48px;">
+        <svg width="40" height="52" viewBox="0 0 40 52" style="overflow:visible;">
+          <defs>
+            <linearGradient id="destGradL" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF6B6B"/>
+              <stop offset="50%" stop-color="#EE2A35"/>
+              <stop offset="100%" stop-color="#C0081C"/>
+            </linearGradient>
+            <linearGradient id="destGradR" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#FF8E8E"/>
+              <stop offset="60%" stop-color="#FF3848"/>
+              <stop offset="100%" stop-color="#D9162A"/>
+            </linearGradient>
+            <linearGradient id="destRim" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#FFE600"/>
+              <stop offset="100%" stop-color="#FF9500"/>
+            </linearGradient>
+            <radialGradient id="destCore" cx="40%" cy="35%" r="60%">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="50%" stop-color="#FFD1D5"/>
+              <stop offset="100%" stop-color="#FFA8B0"/>
+            </radialGradient>
+          </defs>
+          <!-- Pin Body with faceted jewel effect -->
+          <path d="M20 2C10.1 2 2 10.1 2 20c0 14 18 30 18 30s18-16 18-30C38 10.1 29.9 2 20 2z" fill="url(#destGradL)" stroke="rgba(255,255,255,0.85)" stroke-width="1.6"/>
+          <path d="M20 2C29.9 2 38 10.1 38 20c0 14-18 30-18 30V2z" fill="url(#destGradR)" opacity="0.6"/>
+          <!-- Glowing Target Ring -->
+          <circle cx="20" cy="20" r="10.5" fill="#1C1B29" stroke="url(#destRim)" stroke-width="2"/>
+          <circle cx="20" cy="20" r="6" fill="url(#destCore)"/>
+          <circle cx="20" cy="20" r="2.2" fill="#D9162A"/>
+        </svg>
+      </div>
+    </div>`;
+    const pinIcon=Lx.divIcon({className:'',html:pinHtml,iconSize:[40,52],iconAnchor:[20,50]});
     destMarker.current=Lx.marker([dest.lat,dest.lng],{icon:pinIcon}).addTo(mapRef.current);
     mapRef.current.fitBounds(Lx.latLngBounds(coords),{padding:[100,70],animate:true});
     isFollowing.current=false;setOffCentre(false);
@@ -1057,6 +1132,10 @@ export default function App(){
   };
 
   const startVoiceSearch=()=>{
+    // On mobile devices (iOS/Android), SpeechRecognition requires HTTPS or localhost
+    if(typeof window!=='undefined'&&window.location.protocol==='http:'&&window.location.hostname!=='localhost'&&window.location.hostname!=='127.0.0.1'){
+      setToast('Microphone on phones requires HTTPS. Deploying to Vercel provides HTTPS automatically!');
+    }
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){
       setToast('Microphone audio recognition is not supported on this browser. Try Chrome, Edge, or Safari.');
@@ -1066,9 +1145,14 @@ export default function App(){
       try{recognitionRef.current.abort();}catch{}
     }
     openSearch();
+    // On mobile touchscreens, blurring the keyboard prevents the virtual keyboard from hijacking speech
+    if(searchInputRef.current){
+      try{searchInputRef.current.blur();}catch{}
+    }
     try{
       const r=new SR();
-      r.lang='en-IN';
+      // Use user's device language or default to en-IN for Indian English campus dialect
+      r.lang=navigator.language||'en-IN';
       r.interimResults=true;
       r.continuous=false;
       r.maxAlternatives=1;
@@ -1095,7 +1179,7 @@ export default function App(){
       r.onerror=(e)=>{
         setIsListening(false);
         const messages={
-          'not-allowed':'Microphone access was denied. Please allow microphone permission in your browser to speak.',
+          'not-allowed':'Microphone access was denied. Please tap "Allow" when your phone asks for microphone permission.',
           'no-speech':"Didn't hear any speech. Tap the microphone and try speaking again.",
           'audio-capture':'No microphone was detected on this device.',
           'network':'Voice recognition needs a network connection.',
@@ -1177,6 +1261,8 @@ export default function App(){
     @keyframes panicPulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.8),0 0 30px rgba(231,76,60,0.5)}50%{box-shadow:0 0 0 20px rgba(231,76,60,0),0 0 50px rgba(231,76,60,0.8)}}
     @keyframes audioPulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,0.7)}70%{transform:scale(1.08);box-shadow:0 0 0 12px rgba(231,76,60,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,0)}}
     @keyframes audioWave{0%{transform:scaleY(0.3);opacity:0.6}100%{transform:scaleY(1.3);opacity:1}}
+    @keyframes sonarPulse{0%{transform:scale(0.8);opacity:0.95}100%{transform:scale(1.95);opacity:0}}
+    @keyframes destBeacon{0%,100%{transform:scale(1);filter:drop-shadow(0 6px 14px rgba(255,107,107,0.7))}50%{transform:scale(1.08) translateY(-3px);filter:drop-shadow(0 12px 22px rgba(255,107,107,0.95))}}
     @keyframes grainShift{0%{transform:translate(0,0)}25%{transform:translate(-2%,-2%)}50%{transform:translate(2%,-4%)}75%{transform:translate(-3%,2%)}100%{transform:translate(1%,3%)}}
     .leaflet-container{background:${C.bgGrad1}!important;transition:background 0.6s ease;}
     .leaflet-tile-pane{transition:opacity 0.25s ease;}
@@ -1233,11 +1319,11 @@ export default function App(){
       <div className="grain-overlay"/>
       <div ref={mapDiv} style={{position:'absolute',inset:0,zIndex:0,background:C.bgGrad1}}/>
 
-      {/* Everything below is app UI chrome (search, panels, buttons, modals) —
-          wrapped so the "Text size" setting can scale it via CSS zoom without
-          touching the Leaflet map div above, which needs to keep its real
-          unscaled pixel dimensions for click/tap coordinates to line up. */}
-      <div style={{position:'absolute',inset:0,zoom:textScale}}>
+      {/* Everything below is app UI chrome (search, panels, buttons, modals).
+          pointerEvents: 'none' ensures that mouse wheel scrolling, clicks, and drag events
+          pass through freely to the underlying Leaflet map. Interactive controls inside
+          this wrapper explicitly re-enable pointerEvents: 'auto'. */}
+      <div style={{position:'absolute',inset:0,zoom:textScale,pointerEvents:'none'}}>
       {toast&&(
         <div role="alert" style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',zIndex:200,maxWidth:'88%',background:'rgba(30,30,34,0.94)',color:'white',padding:'12px 18px',borderRadius:14,fontSize:13,fontWeight:500,fontFamily:'Sora',boxShadow:'0 6px 20px rgba(0,0,0,0.3)',animation:'fadeIn .2s ease',textAlign:'center'}}>
           {toast}
@@ -1270,7 +1356,7 @@ export default function App(){
         </div>
       )}
 
-      <div className="top-controls" style={{position:'absolute',top:14,left:14,zIndex:21,display:'flex',flexDirection:'column',gap:8}}>
+      <div className="top-controls" style={{position:'absolute',top:14,left:14,zIndex:21,display:'flex',flexDirection:'column',gap:8,pointerEvents:'auto'}}>
         <div style={{...glass,borderRadius:24,padding:'4px',display:'flex',gap:4,overflow:'hidden',position:'relative'}}>
           <div style={{position:'absolute',top:4,left:userTheme==='auto'?4:userTheme==='light'?'calc(33.33% + 2px)':'calc(66.66% + 0px)',width:'calc(33.33% - 2px)',height:'calc(100% - 8px)',background:C.accent,borderRadius:20,transition:'left 0.35s cubic-bezier(0.34,1.56,0.64,1)',zIndex:0,boxShadow:`0 2px 8px ${C.shadow}`}}/>
           {[
@@ -1301,14 +1387,14 @@ export default function App(){
 
       {!showLocModal&&!route&&(
         <div className="top-location-badge" onClick={()=>{setShowLocModal(true);setSheetVisible(true);}}
-          style={{position:'absolute',top:14,right:14,zIndex:20,...glass,borderRadius:20,padding:'6px 14px',display:'flex',alignItems:'center',gap:7,cursor:'pointer',animation:'fadeIn .5s ease'}}>
+          style={{position:'absolute',top:14,right:14,zIndex:20,...glass,borderRadius:20,padding:'6px 14px',display:'flex',alignItems:'center',gap:7,cursor:'pointer',animation:'fadeIn .5s ease',pointerEvents:'auto'}}>
           <div style={{width:7,height:7,borderRadius:'50%',background:gpsPos?C.accent:C.peach,flexShrink:0}}/>
           <span style={{fontSize:11,color:C.textMid,fontWeight:500,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{locLabel||'Set location'}</span>
         </div>
       )}
 
       {showLocModal&&(
-        <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',flexDirection:'column',justifyContent:'flex-end',animation:'fadeIn .25s ease'}}>
+        <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',flexDirection:'column',justifyContent:'flex-end',animation:'fadeIn .25s ease',pointerEvents:'auto'}}>
           <div aria-hidden="true" style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.28)',backdropFilter:'blur(4px)',WebkitBackdropFilter:'blur(4px)'}} onClick={handleDontAllow}/>
           <div role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" ref={locModalRef} style={{position:'relative',zIndex:10,background:'rgba(242,242,247,0.97)',borderRadius:'20px 20px 0 0',paddingBottom:34,backdropFilter:'blur(40px)',WebkitBackdropFilter:'blur(40px)',boxShadow:'0 -2px 20px rgba(0,0,0,0.15)',animation:sheetVisible?'iosSlideUp .42s cubic-bezier(0.32,0.72,0,1)':'iosSlideDown .35s cubic-bezier(0.32,0.72,0,1) forwards'}}>
             <div style={{width:36,height:5,borderRadius:3,background:'rgba(60,60,67,0.18)',margin:'10px auto 0'}}/>
@@ -1348,7 +1434,7 @@ export default function App(){
         </div>
       )}
       {!route&&!showSearch&&!showLocModal&&!showManualPicker&&(
-        <div className="top-search-bar" style={{position:'absolute',top:130,right:14,left:14,zIndex:20,animation:'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto'}}>
+        <div className="top-search-bar" style={{position:'absolute',top:130,right:14,left:14,zIndex:20,animation:'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto',pointerEvents:'auto'}}>
           <div role="button" tabIndex={0} aria-label="Open destination search" onClick={openSearch} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSearch();}}}
   style={{width:'100%',display:'flex',alignItems:'center',gap:14,...glass,padding:'15px 20px',cursor:'text',textAlign:'left',borderRadius:30,boxSizing:'border-box'}}>
   <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -1370,7 +1456,7 @@ export default function App(){
             </button>
             <div style={{flex:1,display:'flex',alignItems:'center',gap:10,...glassSolid,padding:'8px 12px 8px 16px',borderRadius:20,border:isListening?'1.5px solid #e74c3c':`1px solid ${C.cardBorder}`,boxShadow:isListening?'0 0 14px rgba(231,76,60,0.25)':'none',transition:'border 0.2s, box-shadow 0.2s'}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-              <input autoFocus aria-label="Search campus destinations" aria-describedby="search-help" value={query} onChange={e=>handleQueryChange(e.target.value)}
+              <input ref={searchInputRef} autoFocus={!isListening} aria-label="Search campus destinations" aria-describedby="search-help" value={query} onChange={e=>handleQueryChange(e.target.value)}
                 onKeyDown={e=>{if(e.key==='Enter'&&query.trim())handleSearch(query);}}
                 placeholder={isListening?"Listening... Speak your destination":"Search or speak (e.g. 'canteen')..."}
                 style={{flex:1,border:'none',background:'transparent',fontSize:15,color:C.text,outline:'none',minWidth:0}}/>
@@ -1497,7 +1583,7 @@ export default function App(){
       )}
 
       {route&&(
-        <div style={{position:'absolute',bottom:0,left:0,right:0,zIndex:20,padding:'0 12px 20px',animation:routeVisible?'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)':'slideDown .3s ease forwards',maxWidth:700,margin:'0 auto'}}>
+        <div style={{position:'absolute',bottom:0,left:0,right:0,zIndex:20,padding:'0 12px 20px',animation:routeVisible?'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)':'slideDown .3s ease forwards',maxWidth:700,margin:'0 auto',pointerEvents:'auto'}}>
           <div style={{...glassSolid,borderRadius:24,overflow:'hidden'}}>
             <div style={{height:3,background:C.accentLight}}>
               <div style={{height:'100%',background:route.isPanic?'linear-gradient(90deg,#e74c3c,#c0392b)':route.isEmergency?'linear-gradient(90deg,#e67e22,#d35400)':`linear-gradient(90deg,${C.accent},${C.peach})`,width:`${routeProgress}%`,transition:'width 0.5s ease',borderRadius:3}}/>
@@ -1558,7 +1644,7 @@ export default function App(){
       )}
 
       {!route&&!showLocModal&&bottomVisible&&(
-        <div style={{position:'absolute',bottom:0,left:0,right:0,zIndex:20,padding:'0 12px 20px',animation:'slideUp .5s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto'}}>
+        <div style={{position:'absolute',bottom:0,left:0,right:0,zIndex:20,padding:'0 12px 20px',animation:'slideUp .5s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto',pointerEvents:'auto'}}>
           <div style={{...glassSolid,borderRadius:24,padding:'16px'}}>
             <div style={{display:'flex',gap:6,marginBottom:14}}>
               {['nearby','favorites','stats'].map(tab=>(
@@ -1648,14 +1734,14 @@ export default function App(){
 
       {offCentre&&!showSearch&&(
         <button onClick={reCentre}
-          style={{position:'absolute',bottom:route?200:180,right:80,zIndex:20,...glassSolid,border:`1px solid ${C.accent}40`,borderRadius:16,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:600,color:C.accent,fontFamily:'Sora',animation:'fadeIn .3s ease'}}>
+          style={{position:'absolute',bottom:route?200:180,right:80,zIndex:20,...glassSolid,border:`1px solid ${C.accent}40`,borderRadius:16,padding:'10px 14px',cursor:'pointer',display:'flex',alignItems:'center',gap:8,fontSize:12,fontWeight:600,color:C.accent,fontFamily:'Sora',animation:'fadeIn .3s ease',pointerEvents:'auto'}}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill={C.accent}><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
           Re-center
         </button>
       )}
 
       {!showSearch&&!showLocModal&&(
-        <div style={{position:'absolute',bottom:route?220:200,right:14,zIndex:30}}>
+        <div style={{position:'absolute',bottom:route?220:200,right:14,zIndex:30,pointerEvents:'auto'}}>
           {fabOpen&&(
             <div role="dialog" aria-modal="true" aria-label={fabTab==='sos'?'Emergency SOS':'Share Location'} ref={fabPanelRef} style={{position:'absolute',bottom:80,right:14,zIndex:30,width:320,maxWidth:'calc(100vw - 28px)',maxHeight:'calc(100vh - 120px)',display:'flex',flexDirection:'column',animation:'fabPop 0.35s cubic-bezier(0.34,1.56,0.64,1)'}}>
               <div style={{...glassSolid,borderRadius:24,overflow:'hidden',padding:0,display:'flex',flexDirection:'column',maxHeight:'100%',boxShadow:`0 8px 32px ${C.shadow}`}}>
