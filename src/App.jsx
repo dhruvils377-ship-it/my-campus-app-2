@@ -409,9 +409,15 @@ export default function App(){
       center:[CAMPUS_CENTER.lat,CAMPUS_CENTER.lng],
       zoom:17,zoomControl:false,attributionControl:true,
       zoomAnimation:true,fadeAnimation:true,markerZoomAnimation:true,
+      scrollWheelZoom:true,
+      wheelDebounceTime:60,
+      wheelPxPerZoomLevel:90,
+      smoothWheelZoom:true,
+      touchZoom:true,
+      dragging:true,
     });
     leaflet.control.zoom({position:'bottomright'}).addTo(map);
-    map.on('drag',()=>{isFollowing.current=false;setOffCentre(true);});
+    map.on('dragstart zoomstart',()=>{isFollowing.current=false;setOffCentre(true);});
     mapRef.current=map;
     return()=>{if(mapRef.current){mapRef.current.remove();mapRef.current=null;}};
   },[leaflet]);
@@ -1198,6 +1204,13 @@ export default function App(){
     .map-app button{min-height:44px;}
     .spot-card{min-height:72px;border:1px solid ${C.cardBorder};font-family:'Sora',sans-serif;color:${C.text};}
     .search-message{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:${C.accentLight};color:${C.textMid};font-size:13px;line-height:1.45;}
+    @media (max-width:680px){
+      .map-app .top-search-bar{top:136px!important;left:10px!important;right:10px!important;}
+    }
+    @media (min-width:681px){
+      .map-app .top-search-bar{top:20px!important;left:50%!important;transform:translateX(-50%)!important;max-width:540px!important;right:auto!important;}
+      .map-app .top-location-badge{top:20px!important;right:20px!important;}
+    }
     @media (max-width:520px){
       .map-app{height:100dvh!important;}
       .map-app .top-controls{top:max(10px,env(safe-area-inset-top))!important;left:10px!important;gap:6px!important;}
@@ -1287,7 +1300,7 @@ export default function App(){
       </div>
 
       {!showLocModal&&!route&&(
-        <div onClick={()=>{setShowLocModal(true);setSheetVisible(true);}}
+        <div className="top-location-badge" onClick={()=>{setShowLocModal(true);setSheetVisible(true);}}
           style={{position:'absolute',top:14,right:14,zIndex:20,...glass,borderRadius:20,padding:'6px 14px',display:'flex',alignItems:'center',gap:7,cursor:'pointer',animation:'fadeIn .5s ease'}}>
           <div style={{width:7,height:7,borderRadius:'50%',background:gpsPos?C.accent:C.peach,flexShrink:0}}/>
           <span style={{fontSize:11,color:C.textMid,fontWeight:500,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{locLabel||'Set location'}</span>
@@ -1335,7 +1348,7 @@ export default function App(){
         </div>
       )}
       {!route&&!showSearch&&!showLocModal&&!showManualPicker&&(
-        <div style={{position:'absolute',top:130,right:14,left:14,zIndex:20,animation:'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto'}}>
+        <div className="top-search-bar" style={{position:'absolute',top:130,right:14,left:14,zIndex:20,animation:'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto'}}>
           <div role="button" tabIndex={0} aria-label="Open destination search" onClick={openSearch} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSearch();}}}
   style={{width:'100%',display:'flex',alignItems:'center',gap:14,...glass,padding:'15px 20px',cursor:'text',textAlign:'left',borderRadius:30,boxSizing:'border-box'}}>
   <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
@@ -1351,7 +1364,7 @@ export default function App(){
       {showSearch&&(
         <div role="dialog" aria-modal="true" aria-label="Destination search" ref={searchModalRef} style={{position:'fixed',inset:0,zIndex:50,display:'flex',flexDirection:'column',background:C.bgGrad1,animation:searchVisible?'searchIn .25s ease':'searchOut .25s ease forwards',transition:'background 0.6s ease'}}>
           <h2 className="sr-only">Search for a destination</h2>
-          <div style={{padding:'54px 16px 12px',display:'flex',alignItems:'center',gap:12}}>
+          <div style={{padding:'54px 16px 12px',display:'flex',alignItems:'center',gap:12,maxWidth:700,width:'100%',margin:'0 auto'}}>
             <button aria-label="Close search" onClick={closeSearch} style={{width:40,height:40,borderRadius:'50%',...glass,display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer',flexShrink:0}}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textMid}><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             </button>
@@ -1392,7 +1405,7 @@ export default function App(){
             </div>
           </div>
           <div id="search-help" style={{position:'absolute',width:1,height:1,overflow:'hidden',clip:'rect(0 0 0 0)'}}>Type or speak a destination name to start directions.</div>
-          <div style={{flex:1,overflowY:'auto',padding:'0 16px 20px'}}>
+          <div className="scroll-y" style={{flex:1,overflowY:'auto',padding:'0 16px 20px',maxWidth:700,width:'100%',margin:'0 auto'}}>
             {isListening&&(
               <div style={{
                 margin:'8px 0 14px',
@@ -1556,7 +1569,14 @@ export default function App(){
               ))}
             </div>
             {activeTab==='nearby'&&(
-              <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+              <div
+                className="scroll-x"
+                onWheel={(e)=>{
+                  if(e.deltaY!==0){
+                    e.currentTarget.scrollLeft += e.deltaY;
+                  }
+                }}
+                style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:8,scrollBehavior:'smooth'}}>
                 {EXPLORE_SPOTS.map(spot=>(
                   <div key={spot.key} className="spot-card" role="button" tabIndex={0}
                     onClick={()=>selectDestination(spot.key)}
@@ -1571,9 +1591,16 @@ export default function App(){
             {activeTab==='favorites'&&(
               <div>
                 {favorites.length===0?(
-                  <div style={{textAlign:'center',color:C.textLight,fontSize:13,padding:'10px 0'}}>No saved places yet.</div>
+                  <div style={{textAlign:'center',color:C.textLight,fontSize:13,padding:'16px 0'}}>No saved places yet. Tap the bookmark on any spot to save it!</div>
                 ):(
-                  <div style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:4}}>
+                  <div
+                    className="scroll-x"
+                    onWheel={(e)=>{
+                      if(e.deltaY!==0){
+                        e.currentTarget.scrollLeft += e.deltaY;
+                      }
+                    }}
+                    style={{display:'flex',gap:8,overflowX:'auto',paddingBottom:8,scrollBehavior:'smooth'}}>
                     {favorites.map(key=>{
                       const b=BUILDINGS[key];
                       if(!b)return null;
@@ -1630,9 +1657,9 @@ export default function App(){
       {!showSearch&&!showLocModal&&(
         <div style={{position:'absolute',bottom:route?220:200,right:14,zIndex:30}}>
           {fabOpen&&(
-            <div role="dialog" aria-modal="true" aria-label={fabTab==='sos'?'Emergency SOS':'Share Location'} ref={fabPanelRef} style={{position:'absolute',bottom:80,right:14,zIndex:30,width:300,animation:'fabPop 0.35s cubic-bezier(0.34,1.56,0.64,1)'}}>
-              <div style={{...glassSolid,borderRadius:24,overflow:'hidden',padding:0}}>
-                <div style={{padding:'14px 16px 10px',background:`linear-gradient(135deg,${fabTab==='sos'?'#e74c3c':'#2980b9'},${fabTab==='sos'?'#c0392b':'#1f6a9e'})`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div role="dialog" aria-modal="true" aria-label={fabTab==='sos'?'Emergency SOS':'Share Location'} ref={fabPanelRef} style={{position:'absolute',bottom:80,right:14,zIndex:30,width:320,maxWidth:'calc(100vw - 28px)',maxHeight:'calc(100vh - 120px)',display:'flex',flexDirection:'column',animation:'fabPop 0.35s cubic-bezier(0.34,1.56,0.64,1)'}}>
+              <div style={{...glassSolid,borderRadius:24,overflow:'hidden',padding:0,display:'flex',flexDirection:'column',maxHeight:'100%',boxShadow:`0 8px 32px ${C.shadow}`}}>
+                <div style={{padding:'14px 16px 10px',background:`linear-gradient(135deg,${fabTab==='sos'?'#e74c3c':'#2980b9'},${fabTab==='sos'?'#c0392b':'#1f6a9e'})`,display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <img src={fabTab==='sos' ? SOS_ICON_IMG : SHARE_ICON} width="22" height="22" style={{objectFit:"contain",display:"block"}} alt={fabTab==='sos'?'SOS':'Share'}/>
                     <h2 style={{color:'white',fontWeight:700,fontSize:15,fontFamily:"'Space Grotesk',sans-serif",margin:0}}>{fabTab==='sos'?'Emergency SOS':'Share Location'}</h2>
@@ -1674,7 +1701,7 @@ export default function App(){
                 {fabTab==='share'&&(()=>{
                   const meetPoint=generateMeetPoint();
                   return (
-                  <div style={{padding:'8px 12px 14px'}}>
+                  <div className="scroll-y" style={{padding:'8px 12px 14px',overflowY:'auto',maxHeight:'calc(100vh - 220px)'}}>
                     <CrewPanel
                       C={C} glass={glass}
                       crew={crew} newCrewName={newCrewName} setNewCrewName={setNewCrewName}

@@ -35,7 +35,7 @@ export default function SettingsPanel({
     >
       <div
         role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" ref={panelRef}
-        style={{ ...glassSolid, borderRadius: 24, padding: '20px', margin: '0 20px', maxWidth: 340, width: '100%', animation: 'modalIn .3s ease' }}
+        style={{ ...glassSolid, borderRadius: 24, padding: '20px', margin: '0 20px', maxWidth: 360, width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', animation: 'modalIn .3s ease' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>

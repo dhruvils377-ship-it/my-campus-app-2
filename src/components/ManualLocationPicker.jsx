@@ -56,7 +56,7 @@ export default function ManualLocationPicker({
               No matching place found.
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
               {searchResults.map(item => (
                 <BuildingButton key={item.key} item={item} C={C} onClick={() => onSelect(item.key)} />
               ))}
@@ -69,7 +69,7 @@ export default function ManualLocationPicker({
                 letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 {section.label}
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
                 {section.items.map(item => (
                   <BuildingButton key={item.key} item={item} C={C} onClick={() => onSelect(item.key)} />
                 ))}
