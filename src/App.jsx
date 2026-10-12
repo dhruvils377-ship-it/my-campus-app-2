@@ -854,19 +854,50 @@ export default function App(){
     try{localStorage.setItem('campus-nav-recent',JSON.stringify(updated));}catch{setToast("Recent routes couldn't be saved on this device.");}
   };
 
-  const handleSearch=(queryText)=>{
-    const{source,destination}=extractLocations(BUILDINGS,queryText);
-    if(!destination){setSearchMessage('No matching place found. Try a building, food court, library, or gate.');return;}
+  const speakFeedback=(text)=>{
+    if(typeof window==='undefined'||!window.speechSynthesis)return;
+    try{
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang='en-IN';
+      u.rate=1.0;
+      u.volume=Math.max(0.2,Math.min(1,(voiceVolume||80)/100));
+      window.speechSynthesis.speak(u);
+    }catch(e){console.warn('Voice feedback synthesis error:',e);}
+  };
+
+  const handleSearch=(queryText,fromVoice=false)=>{
+    const cleanText=queryText.replace(/[.?!,]+$/,'').trim();
+    const{source,destination}=extractLocations(BUILDINGS,cleanText);
+    if(!destination){
+      const msg=`No matching place found for "${cleanText}". Try a building, canteen, food court, or library.`;
+      setSearchMessage(msg);
+      if(fromVoice)speakFeedback(`Could not find ${cleanText}. Please try saying canteen or library.`);
+      return;
+    }
     const startKey=source||(gpsPos?findNearestBuilding(gpsPos):'pu gate-1');
-    if(startKey===destination){setSearchMessage('You are already at this location. Choose another destination.');return;}
+    if(startKey===destination){
+      const msg='You are already at this location. Choose another destination.';
+      setSearchMessage(msg);
+      if(fromVoice)speakFeedback(`You are already at ${BUILDINGS[destination].name}.`);
+      return;
+    }
     const path=dijkstra(GRAPH,ALL_NODES,BUILDINGS,startKey,destination,routeEdgeWeightFn);
-    if(!path){setSearchMessage(routeType==='accessible'?'No stairs-free route is available to this destination.':'A walking route is not available for this destination yet.');return;}
+    if(!path){
+      const msg=routeType==='accessible'?'No stairs-free route is available to this destination.':'A walking route is not available for this destination yet.';
+      setSearchMessage(msg);
+      if(fromVoice)speakFeedback(msg);
+      return;
+    }
     const result=buildSteps(BUILDINGS,ALL_NODES,path);
     setRoute({...result,path,destName:BUILDINGS[destination].name,startName:BUILDINGS[startKey].name,routeType});
     setStepIdx(0);drawRoute(path);
     drawAlternateRoutes(startKey,destination,routeType,path);
     setShowSearch(false);setSearchVisible(false);setQuery('');setSuggestions([]);setSearchMessage('');
     persistRecentRoutes([{fromKey:startKey,toKey:destination,from:BUILDINGS[startKey].name,to:BUILDINGS[destination].name},...recentRoutes.slice(0,4)]);
+    if(fromVoice){
+      speakFeedback(`Navigating to ${BUILDINGS[destination].name}, about ${result.total} meters away.`);
+    }
   };
 
   // Routes straight to a known BUILDINGS key — used by search suggestion clicks,
@@ -1008,36 +1039,77 @@ export default function App(){
     }
     vibrate(100);
   };
-  const startVoiceSearch=()=>{
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){setToast('Voice search is not supported on this browser.');return;}
-  openSearch();
-  const r=new SR();
-  r.lang='en-IN';
-  r.interimResults=true;
-  recognitionRef.current=r;
-  r.onstart=()=>setIsListening(true);
-  r.onresult=(e)=>{
-    const transcript=Array.from(e.results).map(x=>x[0].transcript).join('');
-    setQuery(transcript);
-    if(e.results[e.results.length-1].isFinal){
+  const toggleVoiceSearch=()=>{
+    if(isListening){
+      if(recognitionRef.current){
+        try{recognitionRef.current.abort();}catch{}
+      }
       setIsListening(false);
-      handleSearch(transcript);
+      return;
+    }
+    startVoiceSearch();
+  };
+
+  const startVoiceSearch=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){
+      setToast('Microphone audio recognition is not supported on this browser. Try Chrome, Edge, or Safari.');
+      return;
+    }
+    if(recognitionRef.current){
+      try{recognitionRef.current.abort();}catch{}
+    }
+    openSearch();
+    try{
+      const r=new SR();
+      r.lang='en-IN';
+      r.interimResults=true;
+      r.continuous=false;
+      r.maxAlternatives=1;
+      recognitionRef.current=r;
+      let speechHandled=false;
+      let lastSpokenText='';
+
+      r.onstart=()=>{
+        setIsListening(true);
+        setSearchMessage('');
+        vibrate(30);
+      };
+      r.onresult=(e)=>{
+        const transcript=Array.from(e.results).map(x=>x[0].transcript).join('');
+        lastSpokenText=transcript;
+        setQuery(transcript);
+        if(e.results[e.results.length-1].isFinal&&transcript.trim()){
+          speechHandled=true;
+          setIsListening(false);
+          try{r.stop();}catch{}
+          handleSearch(transcript,true);
+        }
+      };
+      r.onerror=(e)=>{
+        setIsListening(false);
+        const messages={
+          'not-allowed':'Microphone access was denied. Please allow microphone permission in your browser to speak.',
+          'no-speech':"Didn't hear any speech. Tap the microphone and try speaking again.",
+          'audio-capture':'No microphone was detected on this device.',
+          'network':'Voice recognition needs a network connection.',
+        };
+        setToast(messages[e.error]||'Voice search ran into a problem. Try speaking again or typing.');
+      };
+      r.onend=()=>{
+        setIsListening(false);
+        if(!speechHandled&&lastSpokenText.trim()){
+          speechHandled=true;
+          handleSearch(lastSpokenText,true);
+        }
+      };
+      r.start();
+    }catch(err){
+      console.warn('SpeechRecognition start failed:',err);
+      setIsListening(false);
+      setToast('Microphone could not start. Please check microphone permissions and try again.');
     }
   };
-  r.onerror=(e)=>{
-    setIsListening(false);
-    const messages={
-      'not-allowed':'Microphone access was denied. Enable it in your browser settings to use voice search.',
-      'no-speech':"Didn't catch that — try again and speak after tapping the mic.",
-      'audio-capture':'No microphone was found on this device.',
-      'network':'Voice search needs a network connection. Check your connection and try again.',
-    };
-    setToast(messages[e.error]||'Voice search ran into a problem. Try typing instead.');
-  };
-  r.onend=()=>setIsListening(false);
-  r.start();
-};
   const shareWhatsApp=()=>{
     if(!gpsPos)return;
     const text=encodeURIComponent(`📍 My location at Parul University:\nhttps://www.google.com/maps?q=${gpsPos.lat},${gpsPos.lng}`);
@@ -1097,6 +1169,8 @@ export default function App(){
     @keyframes fabItemIn{from{opacity:0;transform:translateY(10px) scale(0.9)}to{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.5)}50%{box-shadow:0 0 0 10px rgba(231,76,60,0)}}
     @keyframes panicPulse{0%,100%{box-shadow:0 0 0 0 rgba(231,76,60,0.8),0 0 30px rgba(231,76,60,0.5)}50%{box-shadow:0 0 0 20px rgba(231,76,60,0),0 0 50px rgba(231,76,60,0.8)}}
+    @keyframes audioPulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,0.7)}70%{transform:scale(1.08);box-shadow:0 0 0 12px rgba(231,76,60,0)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(231,76,60,0)}}
+    @keyframes audioWave{0%{transform:scaleY(0.3);opacity:0.6}100%{transform:scaleY(1.3);opacity:1}}
     @keyframes grainShift{0%{transform:translate(0,0)}25%{transform:translate(-2%,-2%)}50%{transform:translate(2%,-4%)}75%{transform:translate(-3%,2%)}100%{transform:translate(1%,3%)}}
     .leaflet-container{background:${C.bgGrad1}!important;transition:background 0.6s ease;}
     .leaflet-tile-pane{transition:opacity 0.25s ease;}
@@ -1266,8 +1340,8 @@ export default function App(){
   style={{width:'100%',display:'flex',alignItems:'center',gap:14,...glass,padding:'15px 20px',cursor:'text',textAlign:'left',borderRadius:30,boxSizing:'border-box'}}>
   <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
   <span style={{flex:1,color:C.textLight,fontSize:16,fontWeight:500}}>Where do you want to go?</span>
-  <button aria-label={isListening?'Stop voice search':'Start voice search'} onClick={e=>{e.stopPropagation();startVoiceSearch();}}
-  style={{width:40,height:40,borderRadius:'50%',background:isListening?'#e74c3c':C.accentBtn,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 3px 14px ${C.shadow}`,transition:'background 0.2s'}}>
+  <button aria-label={isListening?'Stop voice search':'Start voice search'} onClick={e=>{e.stopPropagation();toggleVoiceSearch();}}
+  style={{width:40,height:40,borderRadius:'50%',background:isListening?'#e74c3c':C.accentBtn,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:isListening?'0 0 16px rgba(231,76,60,0.65)':`0 3px 14px ${C.shadow}`,transition:'all 0.2s',animation:isListening?'audioPulse 1.2s infinite':'none'}}>
   <span><AIcon icon={isListening?IconCircleDot:IconMicrophone} size={20} pulse={isListening} color="white"/></span>
 </button>
 </div>
@@ -1281,17 +1355,87 @@ export default function App(){
             <button aria-label="Close search" onClick={closeSearch} style={{width:40,height:40,borderRadius:'50%',...glass,display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer',flexShrink:0}}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textMid}><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
             </button>
-            <div style={{flex:1,display:'flex',alignItems:'center',gap:10,...glassSolid,padding:'12px 16px',borderRadius:20}}>
+            <div style={{flex:1,display:'flex',alignItems:'center',gap:10,...glassSolid,padding:'8px 12px 8px 16px',borderRadius:20,border:isListening?'1.5px solid #e74c3c':`1px solid ${C.cardBorder}`,boxShadow:isListening?'0 0 14px rgba(231,76,60,0.25)':'none',transition:'border 0.2s, box-shadow 0.2s'}}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
               <input autoFocus aria-label="Search campus destinations" aria-describedby="search-help" value={query} onChange={e=>handleQueryChange(e.target.value)}
                 onKeyDown={e=>{if(e.key==='Enter'&&query.trim())handleSearch(query);}}
-                placeholder="Search buildings, canteen, gym..."
-                style={{flex:1,border:'none',background:'transparent',fontSize:16,color:C.text,outline:'none'}}/>
-              {isListening&&<span style={{fontSize:12,color:'#e74c3c',fontWeight:600,whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:4}}><AIcon icon={IconCircleDot} size={12} pulse color="#e74c3c"/> Listening...</span>}
+                placeholder={isListening?"Listening... Speak your destination":"Search or speak (e.g. 'canteen')..."}
+                style={{flex:1,border:'none',background:'transparent',fontSize:15,color:C.text,outline:'none',minWidth:0}}/>
+              {query&&(
+                <button type="button" aria-label="Clear text" onClick={()=>{setQuery('');setSuggestions([]);setSearchMessage('');}}
+                  style={{border:'none',background:'transparent',cursor:'pointer',padding:4,color:C.textLight,display:'flex',alignItems:'center'}}>
+                  <AIcon icon={IconX} size={15}/>
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label={isListening?'Stop voice input':'Speak through microphone'}
+                title={isListening?'Stop listening':'Speak destination'}
+                onClick={toggleVoiceSearch}
+                style={{
+                  width:36,
+                  height:36,
+                  borderRadius:'50%',
+                  background:isListening?'#e74c3c':C.accentBtn,
+                  border:'none',
+                  cursor:'pointer',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  flexShrink:0,
+                  boxShadow:isListening?'0 0 12px rgba(231,76,60,0.6)':`0 2px 8px ${C.shadow}`,
+                  transition:'all 0.2s',
+                  animation:isListening?'audioPulse 1.2s infinite':'none',
+                }}>
+                <AIcon icon={isListening?IconCircleDot:IconMicrophone} size={18} pulse={isListening} color="white"/>
+              </button>
             </div>
           </div>
-          <div id="search-help" style={{position:'absolute',width:1,height:1,overflow:'hidden',clip:'rect(0 0 0 0)'}}>Type a destination name and press Enter to start directions.</div>
+          <div id="search-help" style={{position:'absolute',width:1,height:1,overflow:'hidden',clip:'rect(0 0 0 0)'}}>Type or speak a destination name to start directions.</div>
           <div style={{flex:1,overflowY:'auto',padding:'0 16px 20px'}}>
+            {isListening&&(
+              <div style={{
+                margin:'8px 0 14px',
+                padding:'14px 16px',
+                borderRadius:16,
+                background:'linear-gradient(135deg, rgba(231,76,60,0.14), rgba(230,126,34,0.08))',
+                border:'1px solid rgba(231,76,60,0.3)',
+                display:'flex',
+                flexDirection:'column',
+                alignItems:'center',
+                gap:8,
+                animation:'slideUp 0.2s ease',
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{width:9,height:9,borderRadius:'50%',background:'#e74c3c',boxShadow:'0 0 8px #e74c3c'}}/>
+                  <span style={{fontSize:12,fontWeight:700,color:'#e74c3c',letterSpacing:'0.04em',textTransform:'uppercase'}}>
+                    Listening to Microphone...
+                  </span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4,height:24,padding:'2px 0'}}>
+                  {[12,22,16,26,10,20,14,24,11].map((h,idx)=>(
+                    <span key={idx} style={{
+                      width:3.5,
+                      height:`${h}px`,
+                      borderRadius:2,
+                      background:'#e74c3c',
+                      animation:'audioWave 0.5s ease-in-out infinite alternate',
+                      animationDelay:`${idx*0.07}s`
+                    }}/>
+                  ))}
+                </div>
+                <div style={{fontSize:14,color:C.text,fontWeight:600,textAlign:'center',minHeight:20}}>
+                  {query?`"${query}"`:'Speak now, e.g. "Navigate me to Parul Canteen"'}
+                </div>
+                <div style={{fontSize:11,color:C.textLight,textAlign:'center'}}>
+                  Or say: <span style={{color:C.accent,fontWeight:600}}>"Take me to Library"</span> · <span style={{color:C.accent,fontWeight:600}}>"Where is Dominos"</span>
+                </div>
+                <button type="button" onClick={toggleVoiceSearch}
+                  style={{marginTop:2,padding:'5px 12px',borderRadius:16,border:'1px solid rgba(231,76,60,0.4)',background:'rgba(231,76,60,0.12)',color:'#e74c3c',fontSize:11,fontWeight:600,cursor:'pointer'}}>
+                  Tap to Stop
+                </button>
+              </div>
+            )}
             <div style={{marginBottom:12,marginTop:4}}>
               <RouteTypeSelector C={C} glass={glass} routeType={routeType} onChange={setRouteType} compact/>
             </div>
@@ -1309,7 +1453,12 @@ export default function App(){
               <>
                 <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:10,letterSpacing:'0.05em',textTransform:'uppercase'}}>Quick Access</div>
                 <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:20}}>
-                  {EXPLORE_SPOTS.slice(0,8).map(spot=>(
+                  <button type="button" onClick={toggleVoiceSearch} className="chip"
+                    style={{display:'inline-flex',alignItems:'center',gap:6,background:isListening?'rgba(231,76,60,0.18)':C.accentLight,color:isListening?'#e74c3c':C.accent,borderColor:isListening?'#e74c3c':'transparent',fontWeight:600}}>
+                    <AIcon icon={IconMicrophone} size={15} pulse={isListening} color={isListening?'#e74c3c':C.accent}/>
+                    {isListening?'Listening...':'Speak Destination'}
+                  </button>
+                  {EXPLORE_SPOTS.slice(0,7).map(spot=>(
                     <button key={spot.key} onClick={()=>selectDestination(spot.key)} className="chip" style={{display:'inline-flex',alignItems:'center',gap:5}}><DataIcon iconKey={spot.icon} size={15}/> {spot.label}</button>
                   ))}
                 </div>
