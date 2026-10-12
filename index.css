@@ -1,0 +1,36 @@
+/* Global reset for the campus navigator app.
+   The app owns all of its own visual design (colors, typography, spacing)
+   via the `CSS` template string injected in App.jsx, driven by React state
+   (time-of-day / theme), not by CSS custom properties or classes here.
+   This file is intentionally minimal — it previously still contained the
+   full Vite/React starter template's unused styles (.hero, #next-steps,
+   #docs, a --accent design-token palette, h1/h2 rules, etc.) plus a
+   duplicate #root block left over from patching the starter layout. None
+   of that was reachable from the app, so it was dead weight. */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  /* The map fills the full viewport; scrolling is handled inside the app's
+     own overlays (search, bottom sheet), not the page. */
+  overflow: hidden;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light dark;
+}
+
+#root {
+  width: 100%;
+  max-width: none;
+  min-height: 100dvh;
+  margin: 0;
+  border: 0;
+  display: block;
+  text-align: initial;
+}
