@@ -30,44 +30,64 @@ export default function SettingsPanel({
   if (!show) return null;
   return (
     <div
-      style={{ position: 'fixed', inset: 0, zIndex: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', animation: 'fadeIn .2s ease' }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 150,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+        animation: 'fadeIn .2s ease', pointerEvents: 'auto'
+      }}
       onClick={onClose}
     >
       <div
         role="dialog" aria-modal="true" aria-labelledby="settings-dialog-title" ref={panelRef}
-        style={{ ...glassSolid, borderRadius: 24, padding: '20px', margin: '0 20px', maxWidth: 360, width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', animation: 'modalIn .3s ease' }}
+        style={{
+          ...glassSolid, borderRadius: 24, padding: '24px', margin: '0 16px',
+          maxWidth: 380, width: '100%', maxHeight: 'calc(100vh - 40px)', overflowY: 'auto',
+          animation: 'modalIn .25s ease', boxShadow: `0 16px 48px rgba(0,0,0,0.4)`
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 id="settings-dialog-title" style={{ fontSize: 17, fontWeight: 700, color: C.text, margin: 0, fontFamily: "'Space Grotesk',sans-serif" }}>
-            Settings
-          </h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: C.accentLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AIcon icon={IconContrast} size={18} color={C.accent} />
+            </div>
+            <div>
+              <h2 id="settings-dialog-title" style={{ fontSize: 18, fontWeight: 700, color: C.text, margin: 0, fontFamily: "'Space Grotesk',sans-serif" }}>
+                Settings & Preferences
+              </h2>
+              <div style={{ fontSize: 11, color: C.textLight }}>Accessibility, audio & map display</div>
+            </div>
+          </div>
           <button
             onClick={onClose} aria-label="Close settings"
-            style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: C.card, color: C.textMid, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ width: 38, height: 38, borderRadius: '50%', border: 'none', background: C.card, color: C.textMid, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
           >
             <AIcon icon={IconX} size={18} />
           </button>
         </div>
 
         {/* Text size */}
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.cardBorder}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <AIcon icon={IconTextSize} size={16} color={C.accent} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Text size</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Text size & scaling</span>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             {TEXT_SCALES.map((opt) => (
               <button
                 key={opt.key}
+                type="button"
                 onClick={() => onTextScaleChange(opt.key)}
                 aria-pressed={textScaleKey === opt.key}
                 style={{
-                  flex: 1, minHeight: 44, padding: '8px 6px', borderRadius: 10,
-                  border: `1px solid ${textScaleKey === opt.key ? C.accentBtn : C.cardBorder}`,
+                  flex: 1, minHeight: 44, padding: '10px 8px', borderRadius: 12,
+                  border: `1.5px solid ${textScaleKey === opt.key ? C.accentBtn : C.cardBorder}`,
                   background: textScaleKey === opt.key ? C.accentBtn : C.card,
                   color: textScaleKey === opt.key ? 'white' : C.textMid,
-                  fontSize: 12, fontWeight: 600, fontFamily: 'Sora', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'Sora', cursor: 'pointer',
+                  boxShadow: textScaleKey === opt.key ? `0 4px 12px ${C.shadow}` : 'none',
+                  transition: 'all 0.15s ease'
                 }}
               >
                 {opt.label}
@@ -77,64 +97,95 @@ export default function SettingsPanel({
         </div>
 
         {/* High contrast */}
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+        <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: `1px solid ${C.cardBorder}` }}>
+          <div
+            onClick={() => onHighContrastChange(!highContrast)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AIcon icon={IconContrast} size={16} color={C.accent} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>High contrast</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>High contrast mode</div>
+                <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>
+                  Maximizes contrast between routes, labels & backgrounds
+                </div>
+              </div>
             </div>
-            <span
+            <button
+              type="button"
               role="switch" aria-checked={highContrast}
-              onClick={() => onHighContrastChange(!highContrast)}
+              onClick={(e) => { e.stopPropagation(); onHighContrastChange(!highContrast); }}
               style={{
-                width: 44, height: 26, borderRadius: 13, position: 'relative', cursor: 'pointer',
-                background: highContrast ? C.accentBtn : C.cardBorder, transition: 'background 0.2s', flexShrink: 0,
+                width: 48, height: 28, borderRadius: 14, position: 'relative', cursor: 'pointer', border: 'none',
+                background: highContrast ? C.accentBtn : 'rgba(120,120,128,0.28)', transition: 'background 0.2s', flexShrink: 0, padding: 0
               }}
             >
               <span style={{
-                position: 'absolute', top: 3, left: highContrast ? 21 : 3, width: 20, height: 20, borderRadius: '50%',
-                background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                position: 'absolute', top: 3, left: highContrast ? 23 : 3, width: 22, height: 22, borderRadius: '50%',
+                background: 'white', transition: 'left 0.2s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', display: 'block'
               }} />
-            </span>
-          </label>
-          <div style={{ fontSize: 11, color: C.textLight, marginTop: 6, lineHeight: 1.4 }}>
-            Maximizes contrast between text and backgrounds across the app.
+            </button>
           </div>
         </div>
 
         {/* Voice narration */}
-        <div>
-          <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: voiceEnabled ? 10 : 0 }}>
+        <div style={{ marginBottom: 12 }}>
+          <div
+            onClick={() => onVoiceEnabledChange(!voiceEnabled)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none', marginBottom: voiceEnabled ? 12 : 0 }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <AIcon icon={voiceEnabled ? IconVolume : IconVolumeOff} size={16} color={C.accent} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Voice directions</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Spoken voice guidance</div>
+                <div style={{ fontSize: 11, color: C.textLight, marginTop: 2 }}>
+                  Speaks walking directions and audio route updates
+                </div>
+              </div>
             </div>
-            <span
+            <button
+              type="button"
               role="switch" aria-checked={voiceEnabled}
-              onClick={() => onVoiceEnabledChange(!voiceEnabled)}
+              onClick={(e) => { e.stopPropagation(); onVoiceEnabledChange(!voiceEnabled); }}
               style={{
-                width: 44, height: 26, borderRadius: 13, position: 'relative', cursor: 'pointer',
-                background: voiceEnabled ? C.accentBtn : C.cardBorder, transition: 'background 0.2s', flexShrink: 0,
+                width: 48, height: 28, borderRadius: 14, position: 'relative', cursor: 'pointer', border: 'none',
+                background: voiceEnabled ? C.accentBtn : 'rgba(120,120,128,0.28)', transition: 'background 0.2s', flexShrink: 0, padding: 0
               }}
             >
               <span style={{
-                position: 'absolute', top: 3, left: voiceEnabled ? 21 : 3, width: 20, height: 20, borderRadius: '50%',
-                background: 'white', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                position: 'absolute', top: 3, left: voiceEnabled ? 23 : 3, width: 22, height: 22, borderRadius: '50%',
+                background: 'white', transition: 'left 0.2s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', display: 'block'
               }} />
-            </span>
-          </label>
+            </button>
+          </div>
           {voiceEnabled && (
-            <div>
+            <div style={{ background: C.card, borderRadius: 14, padding: '12px 14px', marginTop: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 500, color: C.textMid, marginBottom: 8 }}>
+                <span>Voice volume</span>
+                <span style={{ fontWeight: 700, color: C.accent }}>{voiceVolume}%</span>
+              </div>
               <input
-                type="range" min="0" max="100" value={voiceVolume}
+                type="range" min="10" max="100" value={voiceVolume}
                 onChange={(e) => onVoiceVolumeChange(Number(e.target.value))}
                 aria-label="Voice volume"
-                style={{ width: '100%', accentColor: C.accent }}
+                style={{ width: '100%', accentColor: C.accent, cursor: 'pointer' }}
               />
-              <div style={{ fontSize: 11, color: C.textLight, textAlign: 'right' }}>{voiceVolume}%</div>
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            width: '100%', minHeight: 44, marginTop: 16, padding: '12px',
+            background: C.accentBtn, color: 'white', border: 'none', borderRadius: 14,
+            fontSize: 14, fontWeight: 600, fontFamily: 'Sora', cursor: 'pointer',
+            boxShadow: `0 4px 14px ${C.shadow}`
+          }}
+        >
+          Done
+        </button>
       </div>
     </div>
   );

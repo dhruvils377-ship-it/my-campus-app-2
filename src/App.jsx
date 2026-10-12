@@ -63,6 +63,7 @@ export default function App(){
   // start/end from the map.
   const altRouteLayers=useRef([]);
   const routeEndpointsRef=useRef(null); // {fromKey, toKey}
+  const activeStepLayerRef=useRef(null);
   const footstepsRef=useRef([]),walkingHistory=useRef([]),lastGpsPos=useRef(null);
 
   const [leaflet,setLeaflet]=useState(null);
@@ -350,14 +351,143 @@ export default function App(){
     safeStorageSet('campus-nav-settings',JSON.stringify({textScaleKey,highContrast,voiceEnabled,voiceVolume,routeType}));
   },[textScaleKey,highContrast,voiceEnabled,voiceVolume,routeType]);
 
+  const placePlayer=useCallback((lat,lng,hdg=0)=>{
+    if(!mapRef.current||!window.L)return;
+    const Lx=window.L;
+
+    // ── Player marker: high-tech navigator pointer with cyber glow & radar sweep ──
+    const html=`<div style="width:72px;height:72px;position:relative;display:flex;align-items:center;justify-content:center;">
+      <div style="position:absolute;inset:4px;border-radius:50%;border:2px solid rgba(0,210,255,0.45);background:radial-gradient(circle, rgba(0,210,255,0.18) 0%, rgba(99,102,241,0.08) 55%, transparent 75%);animation:sonarPulse 2.4s cubic-bezier(0.2,0.8,0.2,1) infinite;pointer-events:none;"></div>
+      <svg width="72" height="72" viewBox="0 0 100 100" style="filter:drop-shadow(0 4px 14px rgba(0,210,255,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.45));overflow:visible;">
+        <defs>
+          <radialGradient id="navRadarGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.35"/>
+            <stop offset="60%" stop-color="#6366F1" stop-opacity="0.15"/>
+            <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="navArrowL" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00F5FF"/>
+            <stop offset="50%" stop-color="#00D2FF"/>
+            <stop offset="100%" stop-color="#0284C7"/>
+          </linearGradient>
+          <linearGradient id="navArrowR" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#38BDF8"/>
+            <stop offset="60%" stop-color="#0284C7"/>
+            <stop offset="100%" stop-color="#0369A1"/>
+          </linearGradient>
+          <linearGradient id="navRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#00F5FF"/>
+            <stop offset="50%" stop-color="#818CF8"/>
+            <stop offset="100%" stop-color="#00E5FF"/>
+          </linearGradient>
+          <linearGradient id="navBeam" x1="50%" y1="100%" x2="50%" y2="0%">
+            <stop offset="0%" stop-color="#00F5FF" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#00F5FF" stop-opacity="0.45"/>
+          </linearGradient>
+        </defs>
+        <!-- Outer compass tech ring with tick marks -->
+        <circle cx="50" cy="50" r="46" fill="url(#navRadarGlow)" stroke="url(#navRingGrad)" stroke-width="1.8" stroke-dasharray="3,6" opacity="0.85"/>
+        <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.8" stroke-dasharray="1,4" opacity="0.6"/>
+        
+        <!-- Rotating Navigation Group -->
+        <g class="compass-needle" style="transform-origin:50px 50px;transform:rotate(${hdg}deg);transition:transform 0.35s cubic-bezier(0.2,0,0,1);">
+          <!-- Heading beam vision cone -->
+          <polygon points="50,50 24,4 76,4" fill="url(#navBeam)"/>
+          
+          <!-- Beveled 3D Chevron Arrow with high-contrast dual tone -->
+          <polygon points="50,12 50,48 28,58" fill="url(#navArrowL)" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))"/>
+          <polygon points="50,12 72,58 50,48" fill="url(#navArrowR)" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))"/>
+          <!-- Sharp center spine highlight -->
+          <line x1="50" y1="12" x2="50" y2="48" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
+          <!-- Neon accent wing edges -->
+          <line x1="50" y1="12" x2="28" y2="58" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
+          <line x1="50" y1="12" x2="72" y2="58" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
+        </g>
+        
+        <!-- Central crystal core indicator -->
+        <circle cx="50" cy="50" r="10" fill="#0A0F1D" stroke="url(#navRingGrad)" stroke-width="2.2"/>
+        <circle cx="50" cy="50" r="5" fill="#00F5FF"/>
+        <circle cx="48" cy="48" r="1.8" fill="#FFFFFF" opacity="0.9"/>
+      </svg>
+    </div>`;
+
+    if(!playerRef.current){
+      const icon=Lx.divIcon({className:'',html,iconSize:[72,72],iconAnchor:[36,36]});
+      playerRef.current=Lx.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(mapRef.current);
+    }else{
+      playerRef.current.setLatLng([lat,lng]);
+      const el=playerRef.current.getElement();
+      if(el){const needle=el.querySelector('.compass-needle');if(needle)needle.style.transform=`rotate(${hdg}deg)`;}
+    }
+
+    const lastPos=walkingHistory.current[walkingHistory.current.length-1];
+    const distanceMoved=lastPos?haversine(lastPos,{lat,lng}):0;
+    if(distanceMoved>3||!lastPos){
+      walkingHistory.current.push({lat,lng,time:Date.now()});
+      if(walkingHistory.current.length>15)walkingHistory.current.shift();
+
+      // ── Footprint trail: alternates left / right behind the player ─────────
+      const isLeft=footstepsRef.current.length%2===0;
+      const footstepHtml=`<div style="opacity:0.75;animation:fadeInFoot 0.3s ease;transform:rotate(${hdg}deg) ${isLeft?'translateX(-4px)':'translateX(4px)'};filter:drop-shadow(0 1px 3px rgba(0,0,0,0.2));"><img src="${FOOTPRINT_ICON}" width="20" height="20" style="object-fit:contain;display:block;" alt="footprint"/></div>`;
+      const footIcon=Lx.divIcon({className:'',html:footstepHtml,iconSize:[20,20],iconAnchor:[10,10]});
+      const footMarker=Lx.marker([lat,lng],{icon:footIcon,zIndexOffset:100}).addTo(mapRef.current);
+      footstepsRef.current.push(footMarker);
+      if(footstepsRef.current.length>15){const old=footstepsRef.current.shift();old.remove();}
+    }
+    if(isFollowing.current)mapRef.current.panTo([lat,lng],{animate:true,duration:0.5});
+  },[C]);
+
   useEffect(()=>{
     if(route)setTimeout(()=>setRouteVisible(true),50);
     else setRouteVisible(false);
   },[route]);
 
   useEffect(()=>{
-    if(route&&stepIdx>0)vibrate([100,50,100]);
-  },[stepIdx,route]);
+    if(!route||!route.steps||!route.steps.length)return;
+    const currentStep=route.steps[stepIdx];
+    if(!currentStep)return;
+    if(stepIdx>0)vibrate([100,50,100]);
+
+    // Animate navigator pointer to follow current step node along the route path
+    const nodeKey=currentStep.key||currentStep.nextKey;
+    const nodeCoord=ALL_NODES[nodeKey]||(BUILDINGS[nodeKey]?{lat:BUILDINGS[nodeKey].lat,lng:BUILDINGS[nodeKey].lng}:null);
+    if(nodeCoord){
+      // Calculate heading towards the next point in the step if available
+      let hdg=0;
+      if(currentStep.deg!==undefined&&currentStep.deg!==0){
+        hdg=currentStep.deg;
+      }else if(currentStep.nextKey&&ALL_NODES[currentStep.nextKey]){
+        hdg=Math.round(calcBearing(nodeCoord,ALL_NODES[currentStep.nextKey]));
+      }
+      placePlayer(nodeCoord.lat,nodeCoord.lng,hdg);
+      if(mapRef.current){
+        mapRef.current.panTo([nodeCoord.lat,nodeCoord.lng],{animate:true,duration:0.6});
+      }
+    }
+
+    // Highlight the active segment polyline between step.key and step.nextKey
+    if(mapRef.current&&window.L){
+      if(activeStepLayerRef.current){
+        activeStepLayerRef.current.remove();
+        activeStepLayerRef.current=null;
+      }
+      if(currentStep.key&&currentStep.nextKey&&route.path){
+        const startI=route.path.indexOf(currentStep.key);
+        const endI=route.path.indexOf(currentStep.nextKey);
+        if(startI!==-1&&endI!==-1&&startI<endI){
+          const subPath=route.path.slice(startI,endI+1);
+          const subCoords=subPath.map(k=>[ALL_NODES[k].lat,ALL_NODES[k].lng]);
+          activeStepLayerRef.current=window.L.polyline(subCoords,{
+            color:'#00F5FF',
+            weight:8,
+            opacity:0.95,
+            dashArray:'8,8',
+            lineCap:'round',
+          }).addTo(mapRef.current);
+        }
+      }
+    }
+  },[stepIdx,route,ALL_NODES,BUILDINGS,placePlayer]);
 
   // Voice narration: reads the current turn instruction aloud using the
   // browser's built-in speech synthesis (no external API/key needed). Only
@@ -461,92 +591,6 @@ export default function App(){
     footstepsRef.current.forEach(f=>f.remove());
     footstepsRef.current=[];walkingHistory.current=[];
   },[]);
-
-  const placePlayer=useCallback((lat,lng,hdg=0)=>{
-    if(!mapRef.current||!window.L)return;
-    const Lx=window.L;
-
-    // ── Player marker: high-tech navigator pointer with cyber glow & radar sweep ──
-    const html=`<div style="width:72px;height:72px;position:relative;display:flex;align-items:center;justify-content:center;">
-      <div style="position:absolute;inset:4px;border-radius:50%;border:2px solid rgba(0,210,255,0.45);background:radial-gradient(circle, rgba(0,210,255,0.18) 0%, rgba(99,102,241,0.08) 55%, transparent 75%);animation:sonarPulse 2.4s cubic-bezier(0.2,0.8,0.2,1) infinite;pointer-events:none;"></div>
-      <svg width="72" height="72" viewBox="0 0 100 100" style="filter:drop-shadow(0 4px 14px rgba(0,210,255,0.55)) drop-shadow(0 2px 6px rgba(0,0,0,0.45));overflow:visible;">
-        <defs>
-          <radialGradient id="navRadarGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.35"/>
-            <stop offset="60%" stop-color="#6366F1" stop-opacity="0.15"/>
-            <stop offset="100%" stop-color="#6366F1" stop-opacity="0"/>
-          </radialGradient>
-          <linearGradient id="navArrowL" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#00F5FF"/>
-            <stop offset="50%" stop-color="#00D2FF"/>
-            <stop offset="100%" stop-color="#0284C7"/>
-          </linearGradient>
-          <linearGradient id="navArrowR" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#38BDF8"/>
-            <stop offset="60%" stop-color="#0284C7"/>
-            <stop offset="100%" stop-color="#0369A1"/>
-          </linearGradient>
-          <linearGradient id="navRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#00F5FF"/>
-            <stop offset="50%" stop-color="#818CF8"/>
-            <stop offset="100%" stop-color="#00E5FF"/>
-          </linearGradient>
-          <linearGradient id="navBeam" x1="50%" y1="100%" x2="50%" y2="0%">
-            <stop offset="0%" stop-color="#00F5FF" stop-opacity="0"/>
-            <stop offset="100%" stop-color="#00F5FF" stop-opacity="0.45"/>
-          </linearGradient>
-        </defs>
-        <!-- Outer compass tech ring with tick marks -->
-        <circle cx="50" cy="50" r="46" fill="url(#navRadarGlow)" stroke="url(#navRingGrad)" stroke-width="1.8" stroke-dasharray="3,6" opacity="0.85"/>
-        <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="0.8" stroke-dasharray="1,4" opacity="0.6"/>
-        
-        <!-- Rotating Navigation Group -->
-        <g class="compass-needle" style="transform-origin:50px 50px;transform:rotate(${hdg}deg);transition:transform 0.35s cubic-bezier(0.2,0,0,1);">
-          <!-- Heading beam vision cone -->
-          <polygon points="50,50 24,4 76,4" fill="url(#navBeam)"/>
-          
-          <!-- Beveled 3D Chevron Arrow with high-contrast dual tone -->
-          <polygon points="50,12 50,48 28,58" fill="url(#navArrowL)" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))"/>
-          <polygon points="50,12 72,58 50,48" fill="url(#navArrowR)" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.3))"/>
-          <!-- Sharp center spine highlight -->
-          <line x1="50" y1="12" x2="50" y2="48" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" opacity="0.95"/>
-          <!-- Neon accent wing edges -->
-          <line x1="50" y1="12" x2="28" y2="58" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
-          <line x1="50" y1="12" x2="72" y2="58" stroke="rgba(255,255,255,0.7)" stroke-width="0.8"/>
-        </g>
-        
-        <!-- Central crystal core indicator -->
-        <circle cx="50" cy="50" r="10" fill="#0A0F1D" stroke="url(#navRingGrad)" stroke-width="2.2"/>
-        <circle cx="50" cy="50" r="5" fill="#00F5FF"/>
-        <circle cx="48" cy="48" r="1.8" fill="#FFFFFF" opacity="0.9"/>
-      </svg>
-    </div>`;
-
-    if(!playerRef.current){
-      const icon=Lx.divIcon({className:'',html,iconSize:[72,72],iconAnchor:[36,36]});
-      playerRef.current=Lx.marker([lat,lng],{icon,zIndexOffset:1000}).addTo(mapRef.current);
-    }else{
-      playerRef.current.setLatLng([lat,lng]);
-      const el=playerRef.current.getElement();
-      if(el){const needle=el.querySelector('.compass-needle');if(needle)needle.style.transform=`rotate(${hdg}deg)`;}
-    }
-
-    const lastPos=walkingHistory.current[walkingHistory.current.length-1];
-    const distanceMoved=lastPos?haversine(lastPos,{lat,lng}):0;
-    if(distanceMoved>3||!lastPos){
-      walkingHistory.current.push({lat,lng,time:Date.now()});
-      if(walkingHistory.current.length>15)walkingHistory.current.shift();
-
-      // ── Footprint trail: alternates left / right behind the player ─────────
-      const isLeft=footstepsRef.current.length%2===0;
-      const footstepHtml=`<div style="opacity:0.75;animation:fadeInFoot 0.3s ease;transform:rotate(${hdg}deg) ${isLeft?'translateX(-4px)':'translateX(4px)'};filter:drop-shadow(0 1px 3px rgba(0,0,0,0.2));"><img src="${FOOTPRINT_ICON}" width="20" height="20" style="object-fit:contain;display:block;" alt="footprint"/></div>`;
-      const footIcon=Lx.divIcon({className:'',html:footstepHtml,iconSize:[20,20],iconAnchor:[10,10]});
-      const footMarker=Lx.marker([lat,lng],{icon:footIcon,zIndexOffset:100}).addTo(mapRef.current);
-      footstepsRef.current.push(footMarker);
-      if(footstepsRef.current.length>15){const old=footstepsRef.current.shift();old.remove();}
-    }
-    if(isFollowing.current)mapRef.current.panTo([lat,lng],{animate:true,duration:0.5});
-  },[C]);
 
 
   const dismissSheet=(cb)=>{
@@ -938,46 +982,131 @@ export default function App(){
   const speakFeedback=(text)=>{
     if(typeof window==='undefined'||!window.speechSynthesis)return;
     try{
+      if(window.speechSynthesis.paused)window.speechSynthesis.resume();
       window.speechSynthesis.cancel();
       const u=new SpeechSynthesisUtterance(text);
       u.lang='en-IN';
       u.rate=1.0;
       u.volume=Math.max(0.2,Math.min(1,(voiceVolume||80)/100));
+      u.onerror=()=>{try{window.speechSynthesis.cancel();}catch{}};
       window.speechSynthesis.speak(u);
     }catch(e){console.warn('Voice feedback synthesis error:',e);}
   };
 
   const handleSearch=(queryText,fromVoice=false)=>{
-    const cleanText=queryText.replace(/[.?!,]+$/,'').trim();
-    const{source,destination}=extractLocations(BUILDINGS,cleanText);
-    if(!destination){
-      const msg=`No matching place found for "${cleanText}". Try a building, canteen, food court, or library.`;
-      setSearchMessage(msg);
-      if(fromVoice)speakFeedback(`Could not find ${cleanText}. Please try saying canteen or library.`);
+    // Always release any pending voice recognition immediately to prevent deadlocks
+    setIsListening(false);
+    if(recognitionRef.current){
+      try{recognitionRef.current.abort();}catch{}
+      recognitionRef.current=null;
+    }
+
+    const cleanText=(queryText||'').replace(/[.?!,]+$/,'').trim();
+    if(!cleanText){
+      setSearchMessage('Please enter or speak a destination.');
       return;
     }
+
+    let {source,destination}=extractLocations(BUILDINGS,cleanText);
+    let fallbackUsed=false;
+
+    // If destination is not recognized, attempt intelligent keyword matching or connect to proper campus endpoint
+    if(!destination){
+      fallbackUsed=true;
+      const lowerQuery=cleanText.toLowerCase().replace(/[^a-z0-9\s]/g,' ');
+      const words=lowerQuery.split(/\s+/).filter(w=>w.length>=3);
+      
+      // Check for alias keyword matches
+      for(const word of words){
+        for(const [alias,key] of Object.entries(ALIASES)){
+          if((alias.includes(word)||word.includes(alias))&&BUILDINGS[key]){
+            destination=key;
+            break;
+          }
+        }
+        if(destination)break;
+      }
+
+      // Check building keys and names
+      if(!destination){
+        for(const word of words){
+          for(const [key,bldg] of Object.entries(BUILDINGS)){
+            const bName=(bldg?.name||'').toLowerCase();
+            if((key.includes(word)||bName.includes(word))&&BUILDINGS[key]){
+              destination=key;
+              break;
+            }
+          }
+          if(destination)break;
+        }
+      }
+
+      // If completely non-existent / not found, connect to a prominent campus endpoint
+      // so there is never a deadlock or need to reload!
+      if(!destination){
+        const startCandidate=source||(gpsPos?findNearestBuilding(gpsPos):'pu gate-1');
+        // If starting at or near Main Gate, route to Central Canteen; otherwise route to Main Gate
+        if(startCandidate==='pu gate-1'||startCandidate==='main gate'){
+          destination=BUILDINGS['central canteen']?'central canteen':BUILDINGS['library']?'library':Object.keys(BUILDINGS)[0];
+        }else{
+          destination=BUILDINGS['pu gate-1']?'pu gate-1':BUILDINGS['central canteen']?'central canteen':Object.keys(BUILDINGS)[0];
+        }
+      }
+    }
+
     const startKey=source||(gpsPos?findNearestBuilding(gpsPos):'pu gate-1');
     if(startKey===destination){
-      const msg='You are already at this location. Choose another destination.';
-      setSearchMessage(msg);
-      if(fromVoice)speakFeedback(`You are already at ${BUILDINGS[destination].name}.`);
-      return;
+      // If already at destination, connect to the other primary hub
+      destination=startKey==='pu gate-1'?'central canteen':'pu gate-1';
+      fallbackUsed=true;
     }
-    const path=dijkstra(GRAPH,ALL_NODES,BUILDINGS,startKey,destination,routeEdgeWeightFn);
+
+    let path=dijkstra(GRAPH,ALL_NODES,BUILDINGS,startKey,destination,routeEdgeWeightFn);
     if(!path){
-      const msg=routeType==='accessible'?'No stairs-free route is available to this destination.':'A walking route is not available for this destination yet.';
-      setSearchMessage(msg);
-      if(fromVoice)speakFeedback(msg);
-      return;
+      // If no path to that specific point, connect to Main Gate or Central Canteen
+      const safeFallback=BUILDINGS['pu gate-1']?'pu gate-1':'central canteen';
+      const fallbackPath=dijkstra(GRAPH,ALL_NODES,BUILDINGS,startKey,safeFallback,routeEdgeWeightFn);
+      if(fallbackPath){
+        destination=safeFallback;
+        path=fallbackPath;
+        fallbackUsed=true;
+      }else{
+        const msg=routeType==='accessible'?'No stairs-free route available. Try standard walking mode.':'Walking route is currently unavailable for this path.';
+        setSearchMessage(msg);
+        if(fromVoice)speakFeedback(msg);
+        return;
+      }
     }
+
     const result=buildSteps(BUILDINGS,ALL_NODES,path);
-    setRoute({...result,path,destName:BUILDINGS[destination].name,startName:BUILDINGS[startKey].name,routeType});
-    setStepIdx(0);drawRoute(path);
+    setRoute({
+      ...result,
+      path,
+      destName:BUILDINGS[destination]?.name||'Destination',
+      startName:BUILDINGS[startKey]?.name||'Start',
+      routeType,
+      fallbackFrom:fallbackUsed?cleanText:null,
+      toKey:destination,
+      fromKey:startKey
+    });
+    setStepIdx(0);
+    drawRoute(path);
     drawAlternateRoutes(startKey,destination,routeType,path);
-    setShowSearch(false);setSearchVisible(false);setQuery('');setSuggestions([]);setSearchMessage('');
-    persistRecentRoutes([{fromKey:startKey,toKey:destination,from:BUILDINGS[startKey].name,to:BUILDINGS[destination].name},...recentRoutes.slice(0,4)]);
-    if(fromVoice){
-      speakFeedback(`Navigating to ${BUILDINGS[destination].name}, about ${result.total} meters away.`);
+    setShowSearch(false);
+    setSearchVisible(false);
+    setQuery('');
+    setSuggestions([]);
+    setSearchMessage('');
+    persistRecentRoutes([{fromKey:startKey,toKey:destination,from:BUILDINGS[startKey]?.name||startKey,to:BUILDINGS[destination]?.name||destination},...recentRoutes.slice(0,4)]);
+
+    if(fallbackUsed){
+      const spokenMsg=`I could not find ${cleanText}. Connecting you to ${BUILDINGS[destination]?.name||'Main Gate'}.`;
+      setToast(`Couldn't find "${cleanText}". Connected to ${BUILDINGS[destination]?.name||'Main Gate'}.`);
+      if(fromVoice||voiceEnabled)speakFeedback(spokenMsg);
+    }else{
+      if(fromVoice||voiceEnabled){
+        speakFeedback(`Navigating to ${BUILDINGS[destination]?.name}, about ${result.total} meters away.`);
+      }
     }
   };
 
@@ -1071,6 +1200,7 @@ export default function App(){
       setRoute(null);setStepIdx(0);
       clearAltRoutes();
       routeEndpointsRef.current=null;
+      if(activeStepLayerRef.current){activeStepLayerRef.current.remove();activeStepLayerRef.current=null;}
       routeLayers.current.forEach(l=>l.remove());routeLayers.current=[];
       if(destMarker.current){destMarker.current.remove();destMarker.current=null;}
       footstepsRef.current.forEach(f=>f.remove());footstepsRef.current=[];
@@ -1291,15 +1421,16 @@ export default function App(){
     .spot-card{min-height:72px;border:1px solid ${C.cardBorder};font-family:'Sora',sans-serif;color:${C.text};}
     .search-message{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:${C.accentLight};color:${C.textMid};font-size:13px;line-height:1.45;}
     @media (max-width:680px){
-      .map-app .top-search-bar{top:136px!important;left:10px!important;right:10px!important;}
+      .map-app .top-search-bar{top:106px!important;left:10px!important;right:10px!important;}
     }
     @media (min-width:681px){
       .map-app .top-search-bar{top:20px!important;left:50%!important;transform:translateX(-50%)!important;max-width:540px!important;right:auto!important;}
-      .map-app .top-location-badge{top:20px!important;right:20px!important;}
+      .map-app .top-location-badge-wrap{top:20px!important;right:20px!important;}
     }
     @media (max-width:520px){
       .map-app{height:100dvh!important;}
       .map-app .top-controls{top:max(10px,env(safe-area-inset-top))!important;left:10px!important;gap:6px!important;}
+      .map-app .top-search-bar{top:98px!important;}
       .map-app .bottom-panel{padding:0 10px max(12px,env(safe-area-inset-bottom))!important;}
       .map-app .map-fab{right:10px!important;bottom:190px!important;}
       .map-app .recenter{right:76px!important;}
@@ -1356,40 +1487,52 @@ export default function App(){
         </div>
       )}
 
-      <div className="top-controls" style={{position:'absolute',top:14,left:14,zIndex:21,display:'flex',flexDirection:'column',gap:8,pointerEvents:'auto'}}>
-        <div style={{...glass,borderRadius:24,padding:'4px',display:'flex',gap:4,overflow:'hidden',position:'relative'}}>
-          <div style={{position:'absolute',top:4,left:userTheme==='auto'?4:userTheme==='light'?'calc(33.33% + 2px)':'calc(66.66% + 0px)',width:'calc(33.33% - 2px)',height:'calc(100% - 8px)',background:C.accent,borderRadius:20,transition:'left 0.35s cubic-bezier(0.34,1.56,0.64,1)',zIndex:0,boxShadow:`0 2px 8px ${C.shadow}`}}/>
-          {[
-            ['auto',userTheme==='auto'&&timeOfDay==='morning'?IconSunrise:userTheme==='auto'&&timeOfDay==='afternoon'?IconSun:userTheme==='auto'&&timeOfDay==='evening'?IconMoon:IconCurrentLocation,'Auto'],
-            ['light',IconSun,'Light'],
-            ['dark',IconMoon,'Dark']
-          ].map(([t,Icon,label])=>(
-            <button key={t} onClick={()=>setUserTheme(t)} aria-pressed={userTheme===t}
-              style={{position:'relative',zIndex:1,padding:'8px 16px',background:'transparent',color:userTheme===t?'white':C.textMid,border:'none',borderRadius:20,fontSize:11,fontWeight:userTheme===t?600:500,cursor:'pointer',fontFamily:'Sora',transition:'color 0.2s',display:'flex',alignItems:'center',gap:6}}>
-              <AIcon icon={Icon} size={15} className="aicon-theme"/><span>{label}</span>
-            </button>
-          ))}
+      <div className="top-controls" style={{position:'absolute',top:14,left:14,zIndex:40,display:'flex',flexDirection:'column',gap:7,pointerEvents:'auto'}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{...glass,borderRadius:24,padding:'4px',display:'flex',gap:4,overflow:'hidden',position:'relative'}}>
+            <div style={{position:'absolute',top:4,left:userTheme==='auto'?4:userTheme==='light'?'calc(33.33% + 2px)':'calc(66.66% + 0px)',width:'calc(33.33% - 2px)',height:'calc(100% - 8px)',background:C.accent,borderRadius:20,transition:'left 0.35s cubic-bezier(0.34,1.56,0.64,1)',zIndex:0,boxShadow:`0 2px 8px ${C.shadow}`}}/>
+            {[
+              ['auto',userTheme==='auto'&&timeOfDay==='morning'?IconSunrise:userTheme==='auto'&&timeOfDay==='afternoon'?IconSun:userTheme==='auto'&&timeOfDay==='evening'?IconMoon:IconCurrentLocation,'Auto'],
+              ['light',IconSun,'Light'],
+              ['dark',IconMoon,'Dark']
+            ].map(([t,Icon,label])=>(
+              <button key={t} onClick={()=>setUserTheme(t)} aria-pressed={userTheme===t}
+                style={{position:'relative',zIndex:1,padding:'7px 14px',background:'transparent',color:userTheme===t?'white':C.textMid,border:'none',borderRadius:20,fontSize:11,fontWeight:userTheme===t?600:500,cursor:'pointer',fontFamily:'Sora',transition:'color 0.2s',display:'flex',alignItems:'center',gap:5}}>
+                <AIcon icon={Icon} size={14} className="aicon-theme"/><span>{label}</span>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={()=>{setShowSettings(true);vibrate(30);}}
+            aria-label="Open settings" title="Open Settings"
+            style={{...glassSolid,borderRadius:20,padding:'7px 14px',border:`1px solid ${C.cardBorder}`,cursor:'pointer',fontSize:12,fontWeight:600,fontFamily:'Sora',color:C.text,display:'flex',alignItems:'center',gap:6,boxShadow:`0 2px 10px ${C.shadow}`,height:38}}>
+            <AIcon icon={IconSettings} size={16} color={C.accent}/>
+            <span>Settings</span>
+          </button>
         </div>
-        <div style={{...glass,borderRadius:16,padding:'4px',display:'flex',flexDirection:'column',gap:4}}>
+        <div style={{...glass,borderRadius:18,padding:'3px 4px',display:'inline-flex',gap:3,width:'fit-content'}}>
           {[['standard',IconMap2,'Map'],['satellite',IconSatellite,'Satellite'],['hybrid',IconWorld,'Hybrid']].map(([mode,Icon,label])=>(
             <button key={mode} onClick={()=>{setMapMode(mode);vibrate(30);}} aria-pressed={mapMode===mode}
-              style={{padding:'8px 12px',background:mapMode===mode?C.accent:'transparent',color:mapMode===mode?'white':C.textMid,border:'none',borderRadius:12,fontSize:10,fontWeight:600,cursor:'pointer',fontFamily:'Sora',transition:'all 0.2s',display:'flex',alignItems:'center',gap:6}}>
-              <AIcon icon={Icon} size={14}/><span>{label}</span>
+              style={{padding:'6px 12px',background:mapMode===mode?C.accent:'transparent',color:mapMode===mode?'white':C.textMid,border:'none',borderRadius:14,fontSize:11,fontWeight:600,cursor:'pointer',fontFamily:'Sora',transition:'all 0.2s',display:'flex',alignItems:'center',gap:5}}>
+              <AIcon icon={Icon} size={13}/><span>{label}</span>
             </button>
           ))}
         </div>
-        <button onClick={()=>setShowSettings(true)} aria-label="Open settings"
-          style={{...glassSolid,borderRadius:16,padding:'10px 14px',border:`1px solid ${C.cardBorder}`,cursor:'pointer',fontSize:11,fontWeight:600,fontFamily:'Sora',color:C.textMid,display:'flex',alignItems:'center',gap:8}}>
-          <AIcon icon={IconSettings} size={16}/>
-          <span>Settings</span>
-        </button>
       </div>
 
       {!showLocModal&&!route&&(
-        <div className="top-location-badge" onClick={()=>{setShowLocModal(true);setSheetVisible(true);}}
-          style={{position:'absolute',top:14,right:14,zIndex:20,...glass,borderRadius:20,padding:'6px 14px',display:'flex',alignItems:'center',gap:7,cursor:'pointer',animation:'fadeIn .5s ease',pointerEvents:'auto'}}>
-          <div style={{width:7,height:7,borderRadius:'50%',background:gpsPos?C.accent:C.peach,flexShrink:0}}/>
-          <span style={{fontSize:11,color:C.textMid,fontWeight:500,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{locLabel||'Set location'}</span>
+        <div className="top-location-badge-wrap" style={{position:'absolute',top:14,right:14,zIndex:35,display:'flex',gap:8,alignItems:'center',pointerEvents:'auto'}}>
+          <div className="top-location-badge" onClick={()=>{setShowLocModal(true);setSheetVisible(true);}}
+            style={{...glass,borderRadius:20,padding:'6px 14px',display:'flex',alignItems:'center',gap:7,cursor:'pointer',animation:'fadeIn .5s ease'}}>
+            <div style={{width:7,height:7,borderRadius:'50%',background:gpsPos?C.accent:C.peach,flexShrink:0}}/>
+            <span style={{fontSize:11,color:C.textMid,fontWeight:500,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{locLabel||'Set location'}</span>
+          </div>
+          <button
+            onClick={()=>{setShowSettings(true);vibrate(30);}}
+            aria-label="Open settings" title="Open Settings"
+            style={{...glassSolid,width:36,height:36,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',border:`1px solid ${C.cardBorder}`,cursor:'pointer',color:C.textMid,boxShadow:`0 2px 10px ${C.shadow}`,transition:'all 0.2s'}}>
+            <AIcon icon={IconSettings} size={17} color={C.accent}/>
+          </button>
         </div>
       )}
 
@@ -1602,6 +1745,26 @@ export default function App(){
                 <div style={{background:'rgba(230,126,34,0.1)',border:`1px solid #e67e22`,borderRadius:12,padding:'8px 12px',marginBottom:10,display:'flex',alignItems:'center',gap:8}}>
                   <AIcon icon={IconDoorExit} size={14} color="#e67e22"/>
                   <div style={{fontSize:11,fontWeight:600,color:'#e67e22'}}>Emergency Exit Route</div>
+                </div>
+              )}
+              {route.fallbackFrom && (
+                <div style={{background:C.accentLight,border:`1px solid ${C.accent}40`,borderRadius:14,padding:'10px 14px',marginBottom:12,display:'flex',flexDirection:'column',gap:8}}>
+                  <div style={{fontSize:12,color:C.text,fontWeight:600}}>
+                    Couldn't find "{route.fallbackFrom}" · Connected to {route.destName}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
+                    <span style={{fontSize:11,color:C.textLight}}>Alternative hubs:</span>
+                    {[
+                      ['pu gate-1','Main Gate'],
+                      ['central canteen','Central Canteen'],
+                      ['library','Library']
+                    ].filter(([k])=>k!==route.toKey&&BUILDINGS[k]).slice(0,3).map(([k,name])=>(
+                      <button key={k} onClick={()=>selectDestination(k)}
+                        style={{padding:'4px 9px',borderRadius:10,background:C.cardSolid,border:`1px solid ${C.cardBorder}`,fontSize:11,fontWeight:600,color:C.accent,cursor:'pointer'}}>
+                        {name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
@@ -1859,6 +2022,8 @@ export default function App(){
         </div>
       )}
 
+      </div>
+
       <LostModal
         show={showLostModal}
         C={C}
@@ -1887,7 +2052,6 @@ export default function App(){
         onClose={closeManualPicker}
         panelRef={manualPickerRef}
       />
-      </div>
     </main>
   );
 }

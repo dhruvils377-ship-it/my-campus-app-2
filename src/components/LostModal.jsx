@@ -12,7 +12,7 @@ export default function LostModal({ show, C, glassSolid, modalRef, onClose, onGo
       style={{
         position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center',
         justifyContent: 'center', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)',
-        animation: 'fadeIn .2s ease',
+        animation: 'fadeIn .2s ease', pointerEvents: 'auto',
       }}
       onClick={onClose}
     >

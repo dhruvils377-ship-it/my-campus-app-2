@@ -19,7 +19,7 @@ export default function ManualLocationPicker({
   return (
     <div role="dialog" aria-modal="true" aria-label="Set my location" ref={panelRef}
       style={{ position: 'fixed', inset: 0, zIndex: 55, display: 'flex', flexDirection: 'column',
-        background: C.bgGrad1, animation: 'searchIn .25s ease' }}>
+        background: C.bgGrad1, animation: 'searchIn .25s ease', pointerEvents: 'auto' }}>
       <div style={{ padding: '54px 16px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button aria-label="Back" onClick={onClose}
           style={{ width: 40, height: 40, borderRadius: '50%', background: C.card,
