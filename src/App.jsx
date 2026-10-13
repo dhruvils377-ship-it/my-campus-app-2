@@ -1168,7 +1168,14 @@ export default function App(){
     drawAlternateRoutes(fromKey,toKey,newType,path);
   };
 
-  const openSearch=()=>{setSearchMessage('');setShowSearch(true);setTimeout(()=>setSearchVisible(true),20);};
+  const openSearch=()=>{
+    setSearchMessage('');
+    setShowSearch(true);
+    setTimeout(()=>{
+      setSearchVisible(true);
+      if(searchInputRef.current) searchInputRef.current.focus();
+    },50);
+  };
   const closeSearch=()=>{setSearchVisible(false);setTimeout(()=>{setShowSearch(false);setQuery('');setSuggestions([]);setSearchMessage('');},300);};
 
   useFocusTrap(showSearch,searchModalRef,closeSearch);
@@ -1419,18 +1426,17 @@ export default function App(){
     button:disabled{opacity:.5;cursor:not-allowed!important;}
     .map-app button{min-height:44px;}
     .spot-card{min-height:72px;border:1px solid ${C.cardBorder};font-family:'Sora',sans-serif;color:${C.text};}
-    .search-message{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:${C.accentLight};color:${C.textMid};font-size:13px;line-height:1.45;}
     @media (max-width:680px){
-      .map-app .top-search-bar{top:106px!important;left:10px!important;right:10px!important;}
+      .map-app .top-search-bar{top:96px!important;left:12px!important;right:12px!important;max-width:none!important;transform:none!important;}
     }
     @media (min-width:681px){
-      .map-app .top-search-bar{top:20px!important;left:50%!important;transform:translateX(-50%)!important;max-width:540px!important;right:auto!important;}
-      .map-app .top-location-badge-wrap{top:20px!important;right:20px!important;}
+      .map-app .top-search-bar{top:96px!important;left:50%!important;transform:translateX(-50%)!important;width:calc(100% - 28px)!important;max-width:620px!important;right:auto!important;}
+      .map-app .top-location-badge-wrap{top:14px!important;right:14px!important;}
     }
     @media (max-width:520px){
       .map-app{height:100dvh!important;}
       .map-app .top-controls{top:max(10px,env(safe-area-inset-top))!important;left:10px!important;gap:6px!important;}
-      .map-app .top-search-bar{top:98px!important;}
+      .map-app .top-search-bar{top:92px!important;left:10px!important;right:10px!important;}
       .map-app .bottom-panel{padding:0 10px max(12px,env(safe-area-inset-bottom))!important;}
       .map-app .map-fab{right:10px!important;bottom:190px!important;}
       .map-app .recenter{right:76px!important;}
@@ -1527,200 +1533,19 @@ export default function App(){
             <div style={{width:7,height:7,borderRadius:'50%',background:gpsPos?C.accent:C.peach,flexShrink:0}}/>
             <span style={{fontSize:11,color:C.textMid,fontWeight:500,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{locLabel||'Set location'}</span>
           </div>
-          <button
-            onClick={()=>{setShowSettings(true);vibrate(30);}}
-            aria-label="Open settings" title="Open Settings"
-            style={{...glassSolid,width:36,height:36,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',border:`1px solid ${C.cardBorder}`,cursor:'pointer',color:C.textMid,boxShadow:`0 2px 10px ${C.shadow}`,transition:'all 0.2s'}}>
-            <AIcon icon={IconSettings} size={17} color={C.accent}/>
-          </button>
         </div>
       )}
 
-      {showLocModal&&(
-        <div style={{position:'fixed',inset:0,zIndex:100,display:'flex',flexDirection:'column',justifyContent:'flex-end',animation:'fadeIn .25s ease',pointerEvents:'auto'}}>
-          <div aria-hidden="true" style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.28)',backdropFilter:'blur(4px)',WebkitBackdropFilter:'blur(4px)'}} onClick={handleDontAllow}/>
-          <div role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" ref={locModalRef} style={{position:'relative',zIndex:10,background:'rgba(242,242,247,0.97)',borderRadius:'20px 20px 0 0',paddingBottom:34,backdropFilter:'blur(40px)',WebkitBackdropFilter:'blur(40px)',boxShadow:'0 -2px 20px rgba(0,0,0,0.15)',animation:sheetVisible?'iosSlideUp .42s cubic-bezier(0.32,0.72,0,1)':'iosSlideDown .35s cubic-bezier(0.32,0.72,0,1) forwards'}}>
-            <div style={{width:36,height:5,borderRadius:3,background:'rgba(60,60,67,0.18)',margin:'10px auto 0'}}/>
-            <div style={{display:'flex',alignItems:'center',gap:12,padding:'18px 24px 0'}}>
-              <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${C.accent},${C.accentDark})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 2px 8px ${C.shadow}`}}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-              </div>
-              <div>
-                <div style={{fontSize:15,fontWeight:700,color:'#000',letterSpacing:'-0.2px',fontFamily:"'Space Grotesk',sans-serif"}}>Campus Navigator</div>
-                <div style={{fontSize:12,color:'rgba(60,60,67,0.55)',marginTop:1}}>Parul University</div>
-              </div>
-            </div>
-            <h2 id="location-dialog-title" style={{fontSize:19,fontWeight:700,color:'#000',textAlign:'center',padding:'16px 28px 6px',letterSpacing:'-0.3px',lineHeight:1.25,fontFamily:"'Space Grotesk',sans-serif",margin:0}}>Use your location for navigation?</h2>
-            <div style={{fontSize:13,color:'rgba(60,60,67,0.65)',textAlign:'center',padding:'0 28px 14px',lineHeight:1.55}}>Your location is used to show your position on the campus map and provide accurate walking directions.</div>
-            <div style={{margin:'0 16px 18px',height:120,borderRadius:16,overflow:'hidden',position:'relative',background:`linear-gradient(135deg,${C.bgGrad1},${C.bgGrad2})`,border:'0.5px solid rgba(0,0,0,0.1)'}}>
-              <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(${C.accentLight.replace('0.12','0.07')} 1px,transparent 1px),linear-gradient(90deg,${C.accentLight.replace('0.12','0.07')} 1px,transparent 1px)`,backgroundSize:'22px 22px'}}/>
-              <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-55%)',width:44,height:44,borderRadius:'50%',border:'1.5px solid rgba(0,122,255,0.3)',animation:'ping 2s infinite'}}/>
-              <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-90%)',animation:'bounce 2.5s ease-in-out infinite'}}>
-                <svg width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.9 0 0 4.9 0 11c0 8.25 11 19 11 19S22 19.25 22 11C22 4.9 17.1 0 11 0z" fill="#007AFF"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg>
-              </div>
-            </div>
-            <div style={{height:.5,background:'rgba(60,60,67,0.12)',margin:'0 16px 12px'}}/>
-            {!dataReady&&!datasetError&&(
-              <div role="status" aria-live="polite" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'0 28px 12px',fontSize:13,color:'rgba(60,60,67,0.65)'}}>
-                <span aria-hidden="true" style={{width:14,height:14,borderRadius:'50%',border:'2px solid rgba(0,122,255,0.25)',borderTopColor:'#007AFF',animation:'spin .8s linear infinite',display:'inline-block'}}/>
-                Loading campus map data…
-              </div>
-            )}
-            {datasetError&&(
-              <div role="alert" style={{padding:'0 28px 12px',fontSize:13,color:'#FF3B30',textAlign:'center',lineHeight:1.4}}>Couldn't load campus map data. Check your connection and reload the page.</div>
-            )}
-            <button onClick={handleAllowGPS} disabled={!dataReady||!geolocationSupported} aria-disabled={!dataReady||!geolocationSupported} style={{display:'block',width:'calc(100% - 32px)',margin:'0 16px 10px',padding:'16px',background:'#007AFF',border:'none',borderRadius:14,fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',fontSize:17,fontWeight:600,color:'white',cursor:(dataReady&&geolocationSupported)?'pointer':'default',letterSpacing:-.2,boxShadow:'0 4px 14px rgba(0,122,255,0.3)',opacity:(dataReady&&geolocationSupported)?1:0.5}}>{geolocationSupported?'Use live GPS':'Live GPS not available on this device'}</button>
-            <button onClick={openManualPicker} disabled={!dataReady} aria-disabled={!dataReady} style={{display:'block',width:'calc(100% - 32px)',margin:'0 16px 10px',padding:'16px',background:'rgba(120,120,128,0.12)',border:'none',borderRadius:14,fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',fontSize:17,fontWeight:400,color:'#007AFF',cursor:dataReady?'pointer':'default',letterSpacing:-.2,opacity:dataReady?1:0.5}}>Set my location manually</button>
-            <button onClick={handleDontAllow} disabled={!dataReady} aria-disabled={!dataReady} style={{display:'block',width:'calc(100% - 32px)',margin:'0 16px',padding:'16px',background:'rgba(120,120,128,0.12)',border:'none',borderRadius:14,fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',fontSize:17,fontWeight:400,color:'#FF3B30',cursor:dataReady?'pointer':'default',letterSpacing:-.2,opacity:dataReady?1:0.5}}>Start at Main Gate</button>
-            <div style={{fontSize:12,color:'rgba(60,60,67,0.55)',textAlign:'center',padding:'12px 28px 0',lineHeight:1.4}}>Live GPS is only used while this app is open. The alternative options use a clearly marked starting point.</div>
-          </div>
-        </div>
-      )}
       {!route&&!showSearch&&!showLocModal&&!showManualPicker&&(
-        <div className="top-search-bar" style={{position:'absolute',top:130,right:14,left:14,zIndex:20,animation:'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:700,margin:'0 auto',pointerEvents:'auto'}}>
+        <div className="top-search-bar" style={{position:'absolute',top:96,right:14,left:14,zIndex:60,animation:'slideUp .4s cubic-bezier(0.34,1.2,0.64,1)',maxWidth:620,margin:'0 auto',pointerEvents:'auto'}}>
           <div role="button" tabIndex={0} aria-label="Open destination search" onClick={openSearch} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openSearch();}}}
-  style={{width:'100%',display:'flex',alignItems:'center',gap:14,...glass,padding:'15px 20px',cursor:'text',textAlign:'left',borderRadius:30,boxSizing:'border-box'}}>
-  <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-  <span style={{flex:1,color:C.textLight,fontSize:16,fontWeight:500}}>Where do you want to go?</span>
-  <button aria-label={isListening?'Stop voice search':'Start voice search'} onClick={e=>{e.stopPropagation();toggleVoiceSearch();}}
-  style={{width:40,height:40,borderRadius:'50%',background:isListening?'#e74c3c':C.accentBtn,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:isListening?'0 0 16px rgba(231,76,60,0.65)':`0 3px 14px ${C.shadow}`,transition:'all 0.2s',animation:isListening?'audioPulse 1.2s infinite':'none'}}>
-  <span><AIcon icon={isListening?IconCircleDot:IconMicrophone} size={20} pulse={isListening} color="white"/></span>
-</button>
-</div>
-        </div>
-      )}
-
-      {showSearch&&(
-        <div role="dialog" aria-modal="true" aria-label="Destination search" ref={searchModalRef} style={{position:'fixed',inset:0,zIndex:50,display:'flex',flexDirection:'column',background:C.bgGrad1,animation:searchVisible?'searchIn .25s ease':'searchOut .25s ease forwards',transition:'background 0.6s ease'}}>
-          <h2 className="sr-only">Search for a destination</h2>
-          <div style={{padding:'54px 16px 12px',display:'flex',alignItems:'center',gap:12,maxWidth:700,width:'100%',margin:'0 auto'}}>
-            <button aria-label="Close search" onClick={closeSearch} style={{width:40,height:40,borderRadius:'50%',...glass,display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer',flexShrink:0}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textMid}><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            style={{width:'100%',display:'flex',alignItems:'center',gap:14,...glass,padding:'14px 18px',cursor:'pointer',textAlign:'left',borderRadius:30,boxSizing:'border-box',boxShadow:`0 4px 20px ${C.shadow}`}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <span style={{flex:1,color:C.textLight,fontSize:15,fontWeight:500,userSelect:'none'}}>Where do you want to go?</span>
+            <button type="button" aria-label={isListening?'Stop voice search':'Start voice search'} onClick={e=>{e.stopPropagation();toggleVoiceSearch();}}
+              style={{width:38,height:38,borderRadius:'50%',background:isListening?'#e74c3c':C.accentBtn,border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:isListening?'0 0 16px rgba(231,76,60,0.65)':`0 3px 14px ${C.shadow}`,transition:'all 0.2s',animation:isListening?'audioPulse 1.2s infinite':'none'}}>
+              <span><AIcon icon={isListening?IconCircleDot:IconMicrophone} size={18} pulse={isListening} color="white"/></span>
             </button>
-            <div style={{flex:1,display:'flex',alignItems:'center',gap:10,...glassSolid,padding:'8px 12px 8px 16px',borderRadius:20,border:isListening?'1.5px solid #e74c3c':`1px solid ${C.cardBorder}`,boxShadow:isListening?'0 0 14px rgba(231,76,60,0.25)':'none',transition:'border 0.2s, box-shadow 0.2s'}}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-              <input ref={searchInputRef} autoFocus={!isListening} aria-label="Search campus destinations" aria-describedby="search-help" value={query} onChange={e=>handleQueryChange(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'&&query.trim())handleSearch(query);}}
-                placeholder={isListening?"Listening... Speak your destination":"Search or speak (e.g. 'canteen')..."}
-                style={{flex:1,border:'none',background:'transparent',fontSize:15,color:C.text,outline:'none',minWidth:0}}/>
-              {query&&(
-                <button type="button" aria-label="Clear text" onClick={()=>{setQuery('');setSuggestions([]);setSearchMessage('');}}
-                  style={{border:'none',background:'transparent',cursor:'pointer',padding:4,color:C.textLight,display:'flex',alignItems:'center'}}>
-                  <AIcon icon={IconX} size={15}/>
-                </button>
-              )}
-              <button
-                type="button"
-                aria-label={isListening?'Stop voice input':'Speak through microphone'}
-                title={isListening?'Stop listening':'Speak destination'}
-                onClick={toggleVoiceSearch}
-                style={{
-                  width:36,
-                  height:36,
-                  borderRadius:'50%',
-                  background:isListening?'#e74c3c':C.accentBtn,
-                  border:'none',
-                  cursor:'pointer',
-                  display:'flex',
-                  alignItems:'center',
-                  justifyContent:'center',
-                  flexShrink:0,
-                  boxShadow:isListening?'0 0 12px rgba(231,76,60,0.6)':`0 2px 8px ${C.shadow}`,
-                  transition:'all 0.2s',
-                  animation:isListening?'audioPulse 1.2s infinite':'none',
-                }}>
-                <AIcon icon={isListening?IconCircleDot:IconMicrophone} size={18} pulse={isListening} color="white"/>
-              </button>
-            </div>
-          </div>
-          <div id="search-help" style={{position:'absolute',width:1,height:1,overflow:'hidden',clip:'rect(0 0 0 0)'}}>Type or speak a destination name to start directions.</div>
-          <div className="scroll-y" style={{flex:1,overflowY:'auto',padding:'0 16px 20px',maxWidth:700,width:'100%',margin:'0 auto'}}>
-            {isListening&&(
-              <div style={{
-                margin:'8px 0 14px',
-                padding:'14px 16px',
-                borderRadius:16,
-                background:'linear-gradient(135deg, rgba(231,76,60,0.14), rgba(230,126,34,0.08))',
-                border:'1px solid rgba(231,76,60,0.3)',
-                display:'flex',
-                flexDirection:'column',
-                alignItems:'center',
-                gap:8,
-                animation:'slideUp 0.2s ease',
-              }}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{width:9,height:9,borderRadius:'50%',background:'#e74c3c',boxShadow:'0 0 8px #e74c3c'}}/>
-                  <span style={{fontSize:12,fontWeight:700,color:'#e74c3c',letterSpacing:'0.04em',textTransform:'uppercase'}}>
-                    Listening to Microphone...
-                  </span>
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:4,height:24,padding:'2px 0'}}>
-                  {[12,22,16,26,10,20,14,24,11].map((h,idx)=>(
-                    <span key={idx} style={{
-                      width:3.5,
-                      height:`${h}px`,
-                      borderRadius:2,
-                      background:'#e74c3c',
-                      animation:'audioWave 0.5s ease-in-out infinite alternate',
-                      animationDelay:`${idx*0.07}s`
-                    }}/>
-                  ))}
-                </div>
-                <div style={{fontSize:14,color:C.text,fontWeight:600,textAlign:'center',minHeight:20}}>
-                  {query?`"${query}"`:'Speak now, e.g. "Navigate me to Parul Canteen"'}
-                </div>
-                <div style={{fontSize:11,color:C.textLight,textAlign:'center'}}>
-                  Or say: <span style={{color:C.accent,fontWeight:600}}>"Take me to Library"</span> · <span style={{color:C.accent,fontWeight:600}}>"Where is Dominos"</span>
-                </div>
-                <button type="button" onClick={toggleVoiceSearch}
-                  style={{marginTop:2,padding:'5px 12px',borderRadius:16,border:'1px solid rgba(231,76,60,0.4)',background:'rgba(231,76,60,0.12)',color:'#e74c3c',fontSize:11,fontWeight:600,cursor:'pointer'}}>
-                  Tap to Stop
-                </button>
-              </div>
-            )}
-            <div style={{marginBottom:12,marginTop:4}}>
-              <RouteTypeSelector C={C} glass={glass} routeType={routeType} onChange={setRouteType} compact/>
-            </div>
-            {searchMessage&&<div className="search-message" role="status" aria-live="polite">{searchMessage}</div>}
-            {suggestions.length>0&&suggestions.map((s,i)=>(
-              <button key={s.key} onClick={()=>selectDestination(s.key)}
-                style={{width:'100%',border:'none',textAlign:'left',display:'flex',alignItems:'center',gap:12,...glass,padding:'14px 16px',borderRadius:14,marginBottom:8,cursor:'pointer',animation:`slideUp ${0.05+i*0.04}s ease`}}>
-                <div style={{width:36,height:36,borderRadius:10,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill={C.accent}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                </div>
-                <span style={{fontSize:14,color:C.text,fontWeight:500}}>{s.name}</span>
-              </button>
-            ))}
-            {!query&&(
-              <>
-                <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:10,letterSpacing:'0.05em',textTransform:'uppercase'}}>Quick Access</div>
-                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:20}}>
-                  <button type="button" onClick={toggleVoiceSearch} className="chip"
-                    style={{display:'inline-flex',alignItems:'center',gap:6,background:isListening?'rgba(231,76,60,0.18)':C.accentLight,color:isListening?'#e74c3c':C.accent,borderColor:isListening?'#e74c3c':'transparent',fontWeight:600}}>
-                    <AIcon icon={IconMicrophone} size={15} pulse={isListening} color={isListening?'#e74c3c':C.accent}/>
-                    {isListening?'Listening...':'Speak Destination'}
-                  </button>
-                  {EXPLORE_SPOTS.slice(0,7).map(spot=>(
-                    <button key={spot.key} onClick={()=>selectDestination(spot.key)} className="chip" style={{display:'inline-flex',alignItems:'center',gap:5}}><DataIcon iconKey={spot.icon} size={15}/> {spot.label}</button>
-                  ))}
-                </div>
-                {recentRoutes.length>0&&(
-                  <>
-                    <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:10,letterSpacing:'0.05em',textTransform:'uppercase'}}>Recent</div>
-                    {recentRoutes.map((r,i)=>(
-                      <button key={i} onClick={()=>routeBetweenKeys(r.fromKey,r.toKey)}
-                        style={{width:'100%',border:'none',textAlign:'left',display:'flex',alignItems:'center',gap:12,...glass,padding:'12px 16px',borderRadius:14,marginBottom:8,cursor:'pointer'}}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill={C.textLight}><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18z"/></svg>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:12,color:C.textLight}}>From {r.from}</div>
-                          <div style={{fontSize:13,color:C.text,fontWeight:500,display:'flex',alignItems:'center',gap:5}}><AIcon icon={IconArrowRight} size={13}/> {r.to}</div>
-                        </div>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </>
-            )}
           </div>
         </div>
       )}
@@ -2052,6 +1877,195 @@ export default function App(){
         onClose={closeManualPicker}
         panelRef={manualPickerRef}
       />
+
+      {showLocModal&&(
+        <div style={{position:'fixed',inset:0,zIndex:160,display:'flex',flexDirection:'column',justifyContent:'flex-end',animation:'fadeIn .25s ease',pointerEvents:'auto'}}>
+          <div aria-hidden="true" style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.28)',backdropFilter:'blur(4px)',WebkitBackdropFilter:'blur(4px)'}} onClick={handleDontAllow}/>
+          <div role="dialog" aria-modal="true" aria-labelledby="location-dialog-title" ref={locModalRef} style={{position:'relative',zIndex:10,background:'rgba(242,242,247,0.97)',borderRadius:'20px 20px 0 0',paddingBottom:34,backdropFilter:'blur(40px)',WebkitBackdropFilter:'blur(40px)',boxShadow:'0 -2px 20px rgba(0,0,0,0.15)',animation:sheetVisible?'iosSlideUp .42s cubic-bezier(0.32,0.72,0,1)':'iosSlideDown .35s cubic-bezier(0.32,0.72,0,1) forwards'}}>
+            <div style={{width:36,height:5,borderRadius:3,background:'rgba(60,60,67,0.18)',margin:'10px auto 0'}}/>
+            <div style={{display:'flex',alignItems:'center',gap:12,padding:'18px 24px 0'}}>
+              <div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${C.accent},${C.accentDark})`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,boxShadow:`0 2px 8px ${C.shadow}`}}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              </div>
+              <div>
+                <div style={{fontSize:15,fontWeight:700,color:'#000',letterSpacing:'-0.2px',fontFamily:"'Space Grotesk',sans-serif"}}>Campus Navigator</div>
+                <div style={{fontSize:12,color:'rgba(60,60,67,0.55)',marginTop:1}}>Parul University</div>
+              </div>
+            </div>
+            <h2 id="location-dialog-title" style={{fontSize:19,fontWeight:700,color:'#000',textAlign:'center',padding:'16px 28px 6px',letterSpacing:'-0.3px',lineHeight:1.25,fontFamily:"'Space Grotesk',sans-serif",margin:0}}>Use your location for navigation?</h2>
+            <div style={{fontSize:13,color:'rgba(60,60,67,0.65)',textAlign:'center',padding:'0 28px 14px',lineHeight:1.55}}>Your location is used to show your position on the campus map and provide accurate walking directions.</div>
+            <div style={{margin:'0 16px 18px',height:120,borderRadius:16,overflow:'hidden',position:'relative',background:`linear-gradient(135deg,${C.bgGrad1},${C.bgGrad2})`,border:'0.5px solid rgba(0,0,0,0.1)'}}>
+              <div style={{position:'absolute',inset:0,backgroundImage:`linear-gradient(${C.accentLight.replace('0.12','0.07')} 1px,transparent 1px),linear-gradient(90deg,${C.accentLight.replace('0.12','0.07')} 1px,transparent 1px)`,backgroundSize:'22px 22px'}}/>
+              <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-55%)',width:44,height:44,borderRadius:'50%',border:'1.5px solid rgba(0,122,255,0.3)',animation:'ping 2s infinite'}}/>
+              <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-90%)',animation:'bounce 2.5s ease-in-out infinite'}}>
+                <svg width="22" height="30" viewBox="0 0 22 30"><path d="M11 0C4.9 0 0 4.9 0 11c0 8.25 11 19 11 19S22 19.25 22 11C22 4.9 17.1 0 11 0z" fill="#007AFF"/><circle cx="11" cy="11" r="4.5" fill="white"/></svg>
+              </div>
+            </div>
+            <div style={{height:.5,background:'rgba(60,60,67,0.12)',margin:'0 16px 12px'}}/>
+            {!dataReady&&!datasetError&&(
+              <div role="status" aria-live="polite" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,padding:'0 28px 12px',fontSize:13,color:'rgba(60,60,67,0.65)'}}>
+                <span aria-hidden="true" style={{width:14,height:14,borderRadius:'50%',border:'2px solid rgba(0,122,255,0.25)',borderTopColor:'#007AFF',animation:'spin .8s linear infinite',display:'inline-block'}}/>
+                Loading campus map data…
+              </div>
+            )}
+            {datasetError&&(
+              <div role="alert" style={{padding:'0 28px 12px',fontSize:13,color:'#FF3B30',textAlign:'center',lineHeight:1.4}}>Couldn't load campus map data. Check your connection and reload the page.</div>
+            )}
+            <button onClick={handleAllowGPS} disabled={!dataReady||!geolocationSupported} aria-disabled={!dataReady||!geolocationSupported} style={{display:'block',width:'calc(100% - 32px)',margin:'0 16px 10px',padding:'16px',background:'#007AFF',border:'none',borderRadius:14,fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',fontSize:17,fontWeight:600,color:'white',cursor:(dataReady&&geolocationSupported)?'pointer':'default',letterSpacing:-.2,boxShadow:'0 4px 14px rgba(0,122,255,0.3)',opacity:(dataReady&&geolocationSupported)?1:0.5}}>{geolocationSupported?'Use live GPS':'Live GPS not available on this device'}</button>
+            <button onClick={openManualPicker} disabled={!dataReady} aria-disabled={!dataReady} style={{display:'block',width:'calc(100% - 32px)',margin:'0 16px 10px',padding:'16px',background:'rgba(120,120,128,0.12)',border:'none',borderRadius:14,fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',fontSize:17,fontWeight:400,color:'#007AFF',cursor:dataReady?'pointer':'default',letterSpacing:-.2,opacity:dataReady?1:0.5}}>Set my location manually</button>
+            <button onClick={handleDontAllow} disabled={!dataReady} aria-disabled={!dataReady} style={{display:'block',width:'calc(100% - 32px)',margin:'0 16px',padding:'16px',background:'rgba(120,120,128,0.12)',border:'none',borderRadius:14,fontFamily:'-apple-system,BlinkMacSystemFont,sans-serif',fontSize:17,fontWeight:400,color:'#FF3B30',cursor:dataReady?'pointer':'default',letterSpacing:-.2,opacity:dataReady?1:0.5}}>Start at Main Gate</button>
+            <div style={{fontSize:12,color:'rgba(60,60,67,0.55)',textAlign:'center',padding:'12px 28px 0',lineHeight:1.4}}>Live GPS is only used while this app is open. The alternative options use a clearly marked starting point.</div>
+          </div>
+        </div>
+      )}
+
+      {showSearch&&(
+        <div role="dialog" aria-modal="true" aria-label="Destination search" ref={searchModalRef}
+          style={{
+            position:'fixed',
+            inset:0,
+            zIndex:150,
+            display:'flex',
+            flexDirection:'column',
+            background:C.bgGrad1,
+            animation:searchVisible?'searchIn .25s ease':'searchOut .25s ease forwards',
+            transition:'background 0.6s ease',
+            pointerEvents:'auto',
+            touchAction:'pan-y',
+            overscrollBehavior:'contain'
+          }}>
+          <h2 className="sr-only">Search for a destination</h2>
+          <div style={{padding:'54px 16px 12px',display:'flex',alignItems:'center',gap:12,maxWidth:700,width:'100%',margin:'0 auto'}}>
+            <button aria-label="Close search" onClick={closeSearch} style={{width:40,height:40,borderRadius:'50%',...glass,display:'flex',alignItems:'center',justifyContent:'center',border:'none',cursor:'pointer',flexShrink:0}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={C.textMid}><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </button>
+            <div style={{flex:1,display:'flex',alignItems:'center',gap:10,...glassSolid,padding:'8px 12px 8px 16px',borderRadius:20,border:isListening?'1.5px solid #e74c3c':`1px solid ${C.cardBorder}`,boxShadow:isListening?'0 0 14px rgba(231,76,60,0.25)':'none',transition:'border 0.2s, box-shadow 0.2s'}}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill={C.textLight}><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+              <input ref={searchInputRef} autoFocus={!isListening} aria-label="Search campus destinations" aria-describedby="search-help" value={query} onChange={e=>handleQueryChange(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'&&query.trim())handleSearch(query);}}
+                placeholder={isListening?"Listening... Speak your destination":"Search or speak (e.g. 'canteen')..."}
+                style={{flex:1,border:'none',background:'transparent',fontSize:15,color:C.text,outline:'none',minWidth:0}}/>
+              {query&&(
+                <button type="button" aria-label="Clear text" onClick={()=>{setQuery('');setSuggestions([]);setSearchMessage('');}}
+                  style={{border:'none',background:'transparent',cursor:'pointer',padding:4,color:C.textLight,display:'flex',alignItems:'center'}}>
+                  <AIcon icon={IconX} size={15}/>
+                </button>
+              )}
+              <button
+                type="button"
+                aria-label={isListening?'Stop voice input':'Speak through microphone'}
+                title={isListening?'Stop listening':'Speak destination'}
+                onClick={toggleVoiceSearch}
+                style={{
+                  width:36,
+                  height:36,
+                  borderRadius:'50%',
+                  background:isListening?'#e74c3c':C.accentBtn,
+                  border:'none',
+                  cursor:'pointer',
+                  display:'flex',
+                  alignItems:'center',
+                  justifyContent:'center',
+                  flexShrink:0,
+                  boxShadow:isListening?'0 0 12px rgba(231,76,60,0.6)':`0 2px 8px ${C.shadow}`,
+                  transition:'all 0.2s',
+                  animation:isListening?'audioPulse 1.2s infinite':'none',
+                }}>
+                <AIcon icon={isListening?IconCircleDot:IconMicrophone} size={18} pulse={isListening} color="white"/>
+              </button>
+            </div>
+          </div>
+          <div id="search-help" style={{position:'absolute',width:1,height:1,overflow:'hidden',clip:'rect(0 0 0 0)'}}>Type or speak a destination name to start directions.</div>
+          <div className="scroll-y" style={{flex:1,overflowY:'auto',padding:'0 16px 20px',maxWidth:700,width:'100%',margin:'0 auto',touchAction:'pan-y',overscrollBehavior:'contain'}}>
+            {isListening&&(
+              <div style={{
+                margin:'8px 0 14px',
+                padding:'14px 16px',
+                borderRadius:16,
+                background:'linear-gradient(135deg, rgba(231,76,60,0.14), rgba(230,126,34,0.08))',
+                border:'1px solid rgba(231,76,60,0.3)',
+                display:'flex',
+                flexDirection:'column',
+                alignItems:'center',
+                gap:8,
+                animation:'slideUp 0.2s ease',
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{width:9,height:9,borderRadius:'50%',background:'#e74c3c',boxShadow:'0 0 8px #e74c3c'}}/>
+                  <span style={{fontSize:12,fontWeight:700,color:'#e74c3c',letterSpacing:'0.04em',textTransform:'uppercase'}}>
+                    Listening to Microphone...
+                  </span>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4,height:24,padding:'2px 0'}}>
+                  {[12,22,16,26,10,20,14,24,11].map((h,idx)=>(
+                    <span key={idx} style={{
+                      width:3.5,
+                      height:`${h}px`,
+                      borderRadius:2,
+                      background:'#e74c3c',
+                      animation:'audioWave 0.5s ease-in-out infinite alternate',
+                      animationDelay:`${idx*0.07}s`
+                    }}/>
+                  ))}
+                </div>
+                <div style={{fontSize:14,color:C.text,fontWeight:600,textAlign:'center',minHeight:20}}>
+                  {query?`"${query}"`:'Speak now, e.g. "Navigate me to Parul Canteen"'}
+                </div>
+                <div style={{fontSize:11,color:C.textLight,textAlign:'center'}}>
+                  Or say: <span style={{color:C.accent,fontWeight:600}}>"Take me to Library"</span> · <span style={{color:C.accent,fontWeight:600}}>"Where is Dominos"</span>
+                </div>
+                <button type="button" onClick={toggleVoiceSearch}
+                  style={{marginTop:2,padding:'5px 12px',borderRadius:16,border:'1px solid rgba(231,76,60,0.4)',background:'rgba(231,76,60,0.12)',color:'#e74c3c',fontSize:11,fontWeight:600,cursor:'pointer'}}>
+                  Tap to Stop
+                </button>
+              </div>
+            )}
+            <div style={{marginBottom:12,marginTop:4}}>
+              <RouteTypeSelector C={C} glass={glass} routeType={routeType} onChange={setRouteType} compact/>
+            </div>
+            {searchMessage&&<div className="search-message" role="status" aria-live="polite">{searchMessage}</div>}
+            {suggestions.length>0&&suggestions.map((s,i)=>(
+              <button key={s.key} onClick={()=>selectDestination(s.key)}
+                style={{width:'100%',border:'none',textAlign:'left',display:'flex',alignItems:'center',gap:12,...glass,padding:'14px 16px',borderRadius:14,marginBottom:8,cursor:'pointer',animation:`slideUp ${0.05+i*0.04}s ease`}}>
+                <div style={{width:36,height:36,borderRadius:10,background:C.accentLight,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={C.accent}><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                </div>
+                <span style={{fontSize:14,color:C.text,fontWeight:500}}>{s.name}</span>
+              </button>
+            ))}
+            {!query&&(
+              <>
+                <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:10,letterSpacing:'0.05em',textTransform:'uppercase'}}>Quick Access</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:20}}>
+                  <button type="button" onClick={toggleVoiceSearch} className="chip"
+                    style={{display:'inline-flex',alignItems:'center',gap:6,background:isListening?'rgba(231,76,60,0.18)':C.accentLight,color:isListening?'#e74c3c':C.accent,borderColor:isListening?'#e74c3c':'transparent',fontWeight:600}}>
+                    <AIcon icon={IconMicrophone} size={15} pulse={isListening} color={isListening?'#e74c3c':C.accent}/>
+                    {isListening?'Listening...':'Speak Destination'}
+                  </button>
+                  {EXPLORE_SPOTS.slice(0,7).map(spot=>(
+                    <button key={spot.key} onClick={()=>selectDestination(spot.key)} className="chip" style={{display:'inline-flex',alignItems:'center',gap:5}}><DataIcon iconKey={spot.icon} size={15}/> {spot.label}</button>
+                  ))}
+                </div>
+                {recentRoutes.length>0&&(
+                  <>
+                    <div style={{fontSize:12,fontWeight:600,color:C.textLight,marginBottom:10,letterSpacing:'0.05em',textTransform:'uppercase'}}>Recent</div>
+                    {recentRoutes.map((r,i)=>(
+                      <button key={i} onClick={()=>routeBetweenKeys(r.fromKey,r.toKey)}
+                        style={{width:'100%',border:'none',textAlign:'left',display:'flex',alignItems:'center',gap:12,...glass,padding:'12px 16px',borderRadius:14,marginBottom:8,cursor:'pointer'}}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill={C.textLight}><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18z"/></svg>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,color:C.textLight}}>From {r.from}</div>
+                          <div style={{fontSize:13,color:C.text,fontWeight:500,display:'flex',alignItems:'center',gap:5}}><AIcon icon={IconArrowRight} size={13}/> {r.to}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
